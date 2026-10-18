@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#111317" />
+    <title>Tomo — Estudo do macaquinho em 3D</title>
+  </head>
+  <body>
+    <header class="studio-header">
+      <a class="brand" href="/" aria-label="Voltar ao Tomo"><span>T</span>omo</a>
+      <span class="header-label">ESTÚDIO DE PERSONAGEM <span> / </span> ESTUDO 01</span>
+      <a class="back-link" href="/">Voltar ao Tomo ↗</a>
+    </header>
+    <main>
+      <div class="intro"><div><p class="eyebrow">O MESMO MACAQUINHO. UMA NOVA DIMENSÃO.</p><h1>Vamos olhar de perto.</h1></div><span class="study-tag">PRÉVIA 3D</span></div>
+      <div class="workspace">
+        <section id="stage" aria-label="Modelo 3D interativo do macaquinho" aria-describedby="orbit-hint">
+          <canvas id="viewer" aria-label="Arraste para girar o macaquinho em 3D"></canvas>
+          <div class="stage-top"><span class="live-label">ESTUDO DE VOLUME</span><span id="view-name">Três quartos</span></div>
+          <p id="orbit-hint" class="orbit-hint">Arraste para girar <span>·</span> Role para aproximar</p>
+          <div id="loading" role="status">Preparando o macaquinho…</div>
+        </section>
+        <aside class="controls" aria-label="Controles do modelo">
+          <p class="eyebrow">MODELO 01</p><h2>O macaquinho<br />do Tomo.</h2>
+          <p class="description">Um primeiro estudo de proporções, expressão e movimento. Gire para conferir as mãos, as orelhas e a curva do rabo.</p>
+          <div class="control-section"><h3>Ponto de vista</h3><div class="views" role="group" aria-label="Ponto de vista">
+            <button data-view="three-quarter" aria-pressed="true">¾</button><button data-view="front" aria-pressed="false">Frente</button><button data-view="side" aria-pressed="false">Lado</button><button data-view="back" aria-pressed="false">Costas</button>
+          </div></div>
+          <div class="control-section"><h3>Tom do pelo</h3><div class="swatches" role="group" aria-label="Cor do pelo">
+            <button data-color="#94552f" class="swatch selected" style="--swatch:#94552f" aria-label="Castanho original" aria-pressed="true"></button>
+            <button data-color="#6b402d" class="swatch" style="--swatch:#6b402d" aria-label="Castanho escuro" aria-pressed="false"></button>
+            <button data-color="#b57943" class="swatch" style="--swatch:#b57943" aria-label="Castanho dourado" aria-pressed="false"></button>
+          </div></div>
+          <div class="control-section toggles">
+            <button id="motion" class="toggle" aria-pressed="true"><span>Movimento suave</span><i></i></button>
+            <button id="auto-rotate" class="toggle" aria-pressed="false"><span>Girar sozinho</span><i></i></button>
+            <button id="dark-stage" class="toggle" aria-pressed="false"><span>Fundo escuro do Tomo</span><i></i></button>
+          </div>
+          <div class="download-section"><button id="download" class="download">Baixar modelo .GLB <span>↓</span></button><p>Abra também no Blender para continuar o modelo.</p></div>
+          <p id="status" class="status" aria-live="polite">Prévia independente da tela de login.</p>
+        </aside>
+      </div>
+      <footer>Modelo original, construído em 3D. <span>Ainda em fase de estudo visual.</span></footer>
+    </main>
+    <script type="module" src="/src/preview3d/viewer.ts"></script>
+  </body>
+</html>
