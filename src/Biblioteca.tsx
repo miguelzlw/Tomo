@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { memo, type ReactNode } from 'react';
 import { BookOpen } from 'lucide-react';
 import type { Livro } from './dados/tipos';
 
@@ -8,7 +8,11 @@ interface BibliotecaProps {
   salvarLivro: (livro: Livro, compacto: boolean) => ReactNode;
 }
 
-export function Biblioteca({ livros, abrirLivro, salvarLivro }: BibliotecaProps) {
+/**
+ * Componente da Biblioteca memoizado para evitar re-renderizações desnecessárias
+ * da grade de livros durante atualizações globais no App (como timers ou trocas de estados não relacionados).
+ */
+export const Biblioteca = memo(function Biblioteca({ livros, abrirLivro, salvarLivro }: BibliotecaProps) {
   return <section className="library-page" aria-labelledby="library-title">
     <header className="library-heading"><h1 id="library-title">Biblioteca</h1></header>
     <p className="library-count">{livros.length} {livros.length === 1 ? 'livro' : 'livros'}</p>
@@ -31,4 +35,4 @@ export function Biblioteca({ livros, abrirLivro, salvarLivro }: BibliotecaProps)
       </article>)}
     </div>}
   </section>;
-}
+});
