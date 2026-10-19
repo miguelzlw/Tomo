@@ -1545,7 +1545,7 @@ button, input, textarea, select {
 }
 /* Temas do login e escala compacta para caber na área útil da janela. */
 .auth-shell { position: relative; }
-.auth-theme-toggle { position: absolute; z-index: 30; right: 20px; top: 16px; display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 8px 12px; border: 1px solid #a76c4640; border-radius: 20px; background: #fff7edb8; color: #65412e; font: inherit; font-size: .78rem; cursor: pointer; }
+.auth-theme-toggle { position: absolute; z-index: 30; right: 20px; top: 16px; display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 10px; border: 0; background: transparent; color: #65412e; cursor: pointer; }
 .auth-theme-toggle:focus-visible { outline: 2px solid var(--auth-orange); outline-offset: 3px; }
 #login-screen.auth-screen { padding: 20px 32px; }
 .auth-main { max-width: 1080px; }
@@ -1565,7 +1565,7 @@ button, input, textarea, select {
 [data-tema='escuro'] .auth-submit { background: #e7904b; color: #25170e; border-color: #f2ad75; }
 [data-tema='escuro'] .auth-submit:hover { background: #f0a567; }
 [data-tema='escuro'] .auth-recovery, [data-tema='escuro'] .auth-switch button { color: #f2ad75; }
-[data-tema='escuro'] .auth-theme-toggle { background: #302720; color: #f2d9bb; border-color: #c1976d45; }
+[data-tema='escuro'] .auth-theme-toggle { color: #f2d9bb; }
 [data-tema='escuro'] .auth-message { background: #372a20; color: #e3c7a8; border-color: #b98a5745; }
 [data-tema='escuro'] .auth-message-error { color: #ffb3a1; border-color: #c875585c; }
 @media (max-width: 960px) {
@@ -1727,4 +1727,16 @@ button, input, textarea, select {
 .top-header button[aria-label="Painel Admin"]:focus-visible {
   outline: 2px solid var(--border-focus);
   outline-offset: 3px;
+}
+
+/* Reversible reveals leave the original layout and scroll height intact. */
+[data-scroll-visible] {
+  transition: opacity 480ms ease-out, translate 480ms cubic-bezier(.22, 1, .36, 1);
+}
+[data-scroll-visible='false'] { opacity: 0; translate: 0 22px; pointer-events: none; }
+[data-scroll-visible='true'], [data-scroll-visible]:focus-within {
+  opacity: 1; translate: 0 0; pointer-events: auto;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-scroll-visible] { opacity: 1; translate: none; transition: none; pointer-events: auto; }
 }

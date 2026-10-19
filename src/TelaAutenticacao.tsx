@@ -97,7 +97,7 @@ export function TelaAutenticacao(props: TelaAutenticacaoProps) {
       </div>
     </div>
     <div id="login-screen" className="auth-screen">
-      <button type="button" className="auth-theme-toggle" onClick={trocarTema} aria-label={tema === 'claro' ? 'Ativar tema escuro' : 'Ativar tema claro'}>{tema === 'claro' ? <Moon size={18} /> : <Sun size={18} />}<span>{tema === 'claro' ? 'Escuro' : 'Claro'}</span></button>
+      <button type="button" className="auth-theme-toggle" onClick={trocarTema} title={tema === 'claro' ? 'Ativar tema escuro' : 'Ativar tema claro'} aria-label={tema === 'claro' ? 'Ativar tema escuro' : 'Ativar tema claro'}>{tema === 'claro' ? <Moon size={22} aria-hidden="true" /> : <Sun size={22} aria-hidden="true" />}</button>
       <main className="auth-main">
         <div className="auth-illustration" aria-hidden="true"><MascoteLogin /></div>
         <section className="auth-form-content" aria-labelledby="auth-title">

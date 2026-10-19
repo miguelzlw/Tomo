@@ -1,4 +1,5 @@
 import { BotaoTema } from './tema';
+import { useAnimacaoRolagem } from './useAnimacaoRolagem';
 import { MarcaTomo } from './MarcaTomo';
 import { BotaoConectarIA, JanelaConectarIA } from './ConectarIA';
 import { CriarComIA } from './CriarComIA';
@@ -119,6 +120,8 @@ export function App() {
 
   // Visões Modais / Telas Secundárias
   const [visaoAtiva, setVisaoAtiva] = useState<'principal' | 'editor' | 'leitor' | 'perfil_visitado' | 'notificacoes'>('principal');
+  const conteudoRolagem = useRef<HTMLElement>(null);
+  useAnimacaoRolagem(conteudoRolagem, `${carregandoAuth}:${usuario?.id}:${usuario?.status}:${abaAtual}:${visaoAtiva}`);
   const [livroDetalhes, setLivroDetalhes] = useState<Livro | null>(null);
   const [abrindoLivro, setAbrindoLivro] = useState(false);
   const leituraEmCurso = useRef(false);
@@ -1098,7 +1101,7 @@ export function App() {
       </header>
 
       {/* Main Content Area */}
-      <main className="main-view">
+      <main className="main-view" ref={conteudoRolagem}>
         {visaoAtiva === 'notificacoes' && <section>
           <button className="btn-secondary back-button" onClick={() => setVisaoAtiva('principal')}><ChevronLeft size={16} /> Voltar</button>
           <h1 className="section-title">Notificações</h1>
