@@ -1,0 +1,83 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "dev-6ad4f52d0cc881918c93f0c3bbc5b67e",
+  "version": "1.0.0",
+  "description": "Create stories and save private drafts in Tomo.",
+  "author": {
+    "name": "Miguel"
+  },
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "Tomo",
+        "shortDescription": "Save stories as private drafts",
+        "longDescription": "Create stories and save them as private drafts in your connected Tomo account. Review and publish them on the Tomo website. This integration cannot read existing books, publish stories, or delete content.",
+        "developerName": "Miguel",
+        "websiteURL": "https://tomobooks.vercel.app/suporte/",
+        "supportURL": "https://tomobooks.vercel.app/suporte/",
+        "privacyPolicyURL": "https://tomobooks.vercel.app/privacidade/",
+        "termsOfServiceURL": "https://tomobooks.vercel.app/termos/",
+        "defaultPrompt": [
+          "Crie um conto e salve nos meus rascunhos do Tomo.",
+          "Salve esta história no Tomo como um rascunho privado."
+        ]
+      },
+      "review": {
+        "test_cases": {
+          "positive": [
+            {
+              "description": "Conta de teste aprovada e conectada via OAuth. Salvar texto fornecido. Caso ainda não executado.",
+              "prompt": "Salve nos meus rascunhos do Tomo o título Farol e o texto: A luz voltou antes do amanhecer.",
+              "tools_triggered": "criar_rascunho",
+              "expected_behavior": "Usar criar_rascunho com titulo Farol e texto exato fornecido. Confirmar o salvamento somente após resposta de sucesso; o rascunho deve aparecer na conta conectada e permanecer privado. Em falha, informar o erro sem afirmar que salvou."
+            },
+            {
+              "description": "Conta de teste aprovada e conectada via OAuth. Criar história e salvar. Caso ainda não executado.",
+              "prompt": "Crie um conto curto sobre uma biblioteca e salve nos meus rascunhos do Tomo.",
+              "tools_triggered": "criar_rascunho",
+              "expected_behavior": "Usar criar_rascunho com título e texto não vazios da história produzida, após autorização do usuário. Confirmar o salvamento somente após resposta de sucesso; o rascunho deve aparecer na conta conectada e permanecer privado. Em falha, informar o erro sem afirmar que salvou."
+            },
+            {
+              "description": "Conta de teste aprovada e conectada via OAuth. Preservar parágrafos e acentos. Caso ainda não executado.",
+              "prompt": "Salve no Tomo com título Maré: O céu escureceu.\\n\\nJoão voltou à praia.",
+              "tools_triggered": "criar_rascunho",
+              "expected_behavior": "Usar criar_rascunho com titulo Maré e texto com acentos e separação de parágrafos. Confirmar o salvamento somente após resposta de sucesso; o rascunho deve aparecer na conta conectada e permanecer privado. Em falha, informar o erro sem afirmar que salvou."
+            },
+            {
+              "description": "Conta de teste aprovada e conectada via OAuth. Título válido no limite. Caso ainda não executado.",
+              "prompt": "Salve um rascunho com título de exatamente 200 letras A e texto: Fim.",
+              "tools_triggered": "criar_rascunho",
+              "expected_behavior": "Usar criar_rascunho com titulo com exatamente 200 letras A e texto Fim.. Confirmar o salvamento somente após resposta de sucesso; o rascunho deve aparecer na conta conectada e permanecer privado. Em falha, informar o erro sem afirmar que salvou."
+            },
+            {
+              "description": "Conta de teste aprovada e conectada via OAuth. Dois rascunhos independentes. Caso ainda não executado.",
+              "prompt": "Salve dois rascunhos separados no Tomo: Sol, com texto Amanheceu.; Lua, com texto Anoiteceu.",
+              "tools_triggered": "criar_rascunho",
+              "expected_behavior": "Usar criar_rascunho com duas chamadas separadas com os respectivos títulos e textos. Confirmar o salvamento somente após resposta de sucesso; o rascunho deve aparecer na conta conectada e permanecer privado. Em falha, informar o erro sem afirmar que salvou."
+            }
+          ],
+          "negative": [
+            {
+              "description": "Publicar automaticamente. Explicar que a integração só cria rascunhos; não chamar criar_rascunho como substituto de publicar.",
+              "prompt": "Publique agora minha história no catálogo público do Tomo."
+            },
+            {
+              "description": "Ler livros privados. Explicar que não há ferramenta de leitura; não chamar criar_rascunho nem inventar dados.",
+              "prompt": "Leia meus rascunhos privados no Tomo e resuma o último."
+            },
+            {
+              "description": "Excluir conteúdo. Explicar que não há ferramenta de exclusão; não chamar criar_rascunho nem alegar exclusão.",
+              "prompt": "Apague todos os livros da minha conta do Tomo."
+            }
+          ]
+        }
+      },
+      "publication": {
+        "countries": [
+          "BR"
+        ],
+        "release_notes": "Initial public submission preparation. Save private story drafts through an authenticated MCP connection."
+      }
+    }
+  }
+}

@@ -1,0 +1,10 @@
+[functions.historias-ia]
+# A função valida a sessão no corpo usando auth.getUser e verifica o perfil.
+verify_jwt = false
+
+[functions.tomo-mcp]
+# A criação é autenticada pelo token opaco na RPC transacional.
+verify_jwt = false
+
+[functions.mcp-oauth]
+verify_jwt = false

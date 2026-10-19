@@ -1,0 +1,71 @@
+TOMO — CADASTRO MANUAL DO MCP
+================================
+Este ZIP contém os dados e instruções para cadastrar a conexão.
+No ChatGPT e no Claude, o cadastro manual usa a URL abaixo; não é necessário importar o ZIP.
+
+DADOS PARA COPIAR
+Nome: Tomo
+Descrição: Crie histórias com IA e salve como rascunhos privados no Tomo.
+URL do servidor MCP: https://tomobooks.vercel.app/api/mcp
+Transporte: Streamable HTTP
+Autenticação: OAuth
+Permissão: rascunhos:criar
+Cliente OAuth: registrar automaticamente (Dynamic Client Registration / DCR).
+Não é preciso fornecer client ID ou client secret no cadastro automático.
+
+CLAUDE
+1. Abra https://claude.ai/customize/connectors
+2. Escolha Adicionar conector personalizado.
+3. Informe o nome Tomo e a URL do servidor MCP.
+4. Se houver escolha de autenticação, use login OAuth e Registrar automaticamente.
+   O servidor usa DCR; não selecione a identidade publicada do Claude.
+5. Adicione, conecte e entre na SUA conta do Tomo quando solicitado.
+6. Leia a autorização e confirme para permitir criar rascunhos.
+7. Ative a conexão na conversa e faça o teste abaixo.
+A documentação atual permite um conector personalizado na conta gratuita.
+
+CHATGPT
+1. Abra https://chatgpt.com/plugins na conta que vai usar a integração.
+2. Se disponível, clique em + e Adicionar servidor MCP personalizado.
+3. Informe nome, descrição e URL acima.
+4. Selecione OAuth e siga a autorização da SUA conta do Tomo.
+5. Conclua o cadastro e selecione o Tomo na conversa.
+As permissões da conta ou organização podem impedir adicionar servidores.
+Este cadastro cria uma conexão pessoal; não torna público o plugin privado de outra conta.
+Não é necessário cadastrar faturamento da API para simplesmente seguir estas instruções.
+Se a plataforma pedir pagamento, pare; este guia não autoriza cobranças.
+
+TESTE
+Peça: "Salve nos meus rascunhos do Tomo uma história com o título Teste de conexão e o texto: Era uma vez uma biblioteca escondida."
+Depois entre em https://tomobooks.vercel.app e confira seus rascunhos.
+O sucesso só está confirmado quando a ferramenta responder e o rascunho aparecer na sua conta.
+
+O QUE A FERRAMENTA FAZ
+criar_rascunho(titulo, texto)
+Cria uma história privada na conta conectada.
+Título: de 1 a 200 caracteres.
+Texto: até 150.000 caracteres e 100 páginas.
+Não lê livros existentes, não publica e não exclui conteúdo.
+A conta do Tomo precisa estar aprovada.
+
+ERROS COMUNS
+"Plugin not found": não use o link privado de outra conta. Cadastre pela URL MCP.
+401 ao abrir a URL isoladamente: o servidor exige autorização; conecte pelo cadastro OAuth.
+Não cole a URL em uma conversa comum esperando instalar o conector.
+Para revogar: Tomo > Conectar com IA > Opções avançadas e gerenciamento > Revogar acesso MCP.
+Nunca compartilhe senhas, tokens ou chaves de API.
+
+SUPORTE
+joaotse@gmail.com
+https://tomobooks.vercel.app/suporte/
+Privacidade: https://tomobooks.vercel.app/privacidade/
+Termos: https://tomobooks.vercel.app/termos/
+
+ARQUIVOS
+LEIA-ME.txt: instruções deste cadastro.
+mcp.json: configuração portátil para clientes compatíveis; autenticação depende do cliente.
+Este não é um pacote concluído para publicação no catálogo da OpenAI.
+
+REFERÊNCIAS
+https://claude.com/docs/connectors/custom/add-unlisted
+https://developers.openai.com/plugins/deploy/connect-chatgpt

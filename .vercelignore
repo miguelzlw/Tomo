@@ -1,0 +1,11 @@
+.tmp/
+.git/
+.env
+.env.*
+!.env.example
+node_modules/
+dist/
+supabase/
+docs/
+zteste.html
+zz.html

@@ -39,6 +39,10 @@ O script completo com as 9 tabelas, funções de segurança e políticas RLS est
 
 ## 🚀 Como Executar o Projeto Localmente
 
+A criação de histórias com OpenAI, Gemini e Claude e o conector MCP estão
+documentados em [Integrações de IA](docs/integracoes-ia.md), incluindo configuração
+das APIs, autorização e publicação das funções do servidor.
+
 ### 1. Configurar Variáveis de Ambiente
 Crie ou edite o arquivo `.env`:
 ```env

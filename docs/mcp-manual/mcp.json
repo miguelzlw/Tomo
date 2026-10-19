@@ -1,0 +1,9 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "mcpServers": {
+    "tomo": {
+      "type": "streamable-http",
+      "url": "https://tomobooks.vercel.app/api/mcp"
+    }
+  }
+}

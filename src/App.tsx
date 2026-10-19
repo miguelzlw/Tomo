@@ -1,4 +1,8 @@
 import { BotaoTema } from './tema';
+import { MarcaTomo } from './MarcaTomo';
+import { BotaoConectarIA, JanelaConectarIA } from './ConectarIA';
+import { CriarComIA } from './CriarComIA';
+import { prepararInsercaoIA } from './ia';
 import { ConsultasCompartilhadas } from './dados/consultasCompartilhadas';
 import React, { useState, useEffect, useRef } from 'react';
 import { dividirTextoEmPaginas } from './paginacao';
@@ -111,6 +115,7 @@ export function App() {
 
   // Navegação Principal (5 ícones)
   const [abaAtual, setAbaAtual] = useState<'dashboard' | 'feed' | 'criar_editar' | 'pesquisa' | 'perfil'>('dashboard');
+  const [conectandoIA, setConectandoIA] = useState(() => new URLSearchParams(window.location.search).has('mcp_authorize'));
 
   // Visões Modais / Telas Secundárias
   const [visaoAtiva, setVisaoAtiva] = useState<'principal' | 'editor' | 'leitor' | 'perfil_visitado' | 'notificacoes'>('principal');
@@ -730,7 +735,7 @@ export function App() {
       <div className="app-container" style={{ padding: 20 }}>
         <header className="top-header">
           <div className="brand-badge">
-            <h1 className="brand-logo">To<span>mo</span></h1>
+            <h1><MarcaTomo /></h1>
           </div>
           <button className="btn-secondary" onClick={handleLogout} style={{ padding: '6px 12px' }}>
             <LogOut size={16} /> Sair
@@ -835,6 +840,12 @@ export function App() {
                   )}
                 </div>
               </div></header>
+          <CriarComIA key={editLivroId} inserir={(texto) => {
+            const paginas = prepararInsercaoIA(editPaginas, texto);
+            setEditPaginas(paginas);
+            setEditPaginaAtual(editPaginas.length === 1 && !editPaginas[0].texto ? 1 : editPaginas.length + 1);
+            setEditStatusSalvo('alterado');
+          }} />
           <div className="book-editor-layout">
             {/* Metadados do Livro */}
             <div className="editor-metadata">
@@ -968,9 +979,9 @@ export function App() {
   if (visaoAtiva === 'leitor' && livroLeitura) {
     const paginaAtualObj = paginasLeitura[paginaLeituraAtual - 1] || { numero: paginaLeituraAtual, texto: '' };
     const fundoEstilo: React.CSSProperties = {
-      backgroundColor: livroLeitura.fundo_url?.startsWith('#') ? livroLeitura.fundo_url : 'var(--reader-bg)',
-      backgroundImage: livroLeitura.fundo_url?.startsWith('http') ? `url(${livroLeitura.fundo_url})` : undefined,
-      color: livroLeitura.fundo_url ? '#1a1a1a' : 'var(--reader-text)',
+      backgroundColor: '#ffffff',
+      color: '#1a1a1a',
+      colorScheme: 'light',
     };
 
     return (
@@ -993,7 +1004,7 @@ export function App() {
               {paginaAtualObj.texto}
             </div>
 
-            <div style={{ textAlign: 'center', marginTop: 32, fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: 'var(--reader-muted)' }}>
+            <div style={{ textAlign: 'center', marginTop: 32, fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: '#74685d' }}>
               — {paginaLeituraAtual} —
             </div>
           </div>
@@ -1030,14 +1041,14 @@ export function App() {
       {/* Top Header */}
       <header className="top-header">
         <button className="brand-badge brand-reload" aria-label="Recarregar Tomo" title="Recarregar Tomo" onClick={() => window.location.reload()}>
-          <span className="brand-logo">To<span>mo</span></span>
+          <MarcaTomo />
         </button>
 
-        <nav className="desktop-navigation" aria-label="Atalhos principais">
+        <div className="header-navigation-group"><nav className="desktop-navigation" aria-label="Atalhos principais">
           <button aria-current={abaAtual === 'dashboard' && visaoAtiva === 'principal' ? 'page' : undefined} onClick={() => { setAbaAtual('dashboard'); setVisaoAtiva('principal'); window.scrollTo({ top: 0, behavior: 'instant' }); }}>Início</button>
           <button aria-current={abaAtual === 'feed' && visaoAtiva === 'principal' ? 'page' : undefined} onClick={() => { setAbaAtual('feed'); setVisaoAtiva('principal'); window.scrollTo({ top: 0, behavior: 'instant' }); }}>Explorar</button>
           <button onClick={() => { setAbaAtual('dashboard'); setVisaoAtiva('principal'); setIrEstante(true); }}>Minha estante</button>
-        </nav>
+        </nav><BotaoConectarIA abrir={() => setConectandoIA(true)} /></div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <BotaoTema />
           {usuario.papel === 'admin' && abaAtual === 'perfil' && visaoAtiva === 'principal' && (
@@ -1180,6 +1191,12 @@ export function App() {
         )}
       </main>
 
+      {conectandoIA && <JanelaConectarIA key={usuario.id} fechar={() => {
+        setConectandoIA(false);
+        const url = new URL(window.location.href);
+        url.searchParams.delete('mcp_authorize');
+        window.history.replaceState(null, '', url);
+      }} />}
       {(confirmarDeixar || confirmarSaida || editandoPerfil) && <div className="admin-modal-backdrop">
         <div ref={dialogRef} className={`admin-modal-content confirmation-dialog${editandoPerfil ? ' profile-edit-dialog' : ''}`} role="dialog" aria-modal="true" aria-labelledby="dialog-title">
           {editandoPerfil ? <form className="profile-edit-form" onSubmit={salvarPerfil}>

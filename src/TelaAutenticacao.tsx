@@ -1,4 +1,5 @@
 import { MascoteLogin } from './MascoteLogin';
+import { MarcaTomo } from './MarcaTomo';
 import { useTema } from './tema';
 import { useLayoutEffect, useRef, useState } from 'react';
 import type React from 'react';
@@ -30,52 +31,57 @@ export function TelaAutenticacao(props: TelaAutenticacaoProps) {
   const erroExibido = authErro || erroConfiguracaoSupabase;
   const { tema, trocarTema } = useTema();
   const [mostrarSenha, setMostrarSenha] = useState(false);
+  const [emAbertura, setEmAbertura] = useState(true);
   const pagina = useRef<HTMLDivElement>(null);
   const abertura = useRef<HTMLDivElement>(null);
   const logoAbertura = useRef<HTMLDivElement>(null);
   const marca = useRef<HTMLSpanElement>(null);
 
   useLayoutEffect(() => {
+    let cancelado = false;
+    let esperaFonte: number | undefined;
     const media = gsap.matchMedia();
     media.add({ reduzido: '(prefers-reduced-motion: reduce)', animado: '(prefers-reduced-motion: no-preference)' }, (contextoMedia) => {
-      let limite: number | undefined;
+      let canceladoMedia = false;
       const contexto = gsap.context(() => {
         const tela = pagina.current?.querySelector('#login-screen');
         if (contextoMedia.conditions?.reduzido) {
           gsap.set(abertura.current, { autoAlpha: 0, pointerEvents: 'none' });
+          setEmAbertura(false);
           return;
         }
         gsap.set(tela!, { autoAlpha: 0 });
         gsap.set(marca.current, { opacity: 0 });
-        const tl = gsap.timeline();
-        tl.to(logoAbertura.current, { rotation: -360, duration: 1.1, ease: 'power2.inOut' }, 0)
-          .to('.opening-morph', { attr: { d: 'M 22,20 L 78,20 M 50,20 L 50,85' }, duration: 1.1, ease: 'power2.inOut' }, 0)
-          .to(logoAbertura.current, { x: -54, duration: 1, ease: 'power2.inOut' }, '+=0.05')
-          .to('.opening-omo', { width: 'auto', opacity: 1, duration: 1, ease: 'power2.inOut' }, '<')
-          .to({}, { duration: .45 })
-          .to(logoAbertura.current, {
-            scale: .38,
-            x: () => {
-              const origem = logoAbertura.current!.getBoundingClientRect();
-              const destino = marca.current!.getBoundingClientRect();
-              return Number(gsap.getProperty(logoAbertura.current, 'x')) + destino.left + destino.width / 2 - origem.left - origem.width / 2;
-            },
-            y: () => {
-              const origem = logoAbertura.current!.getBoundingClientRect();
-              const destino = marca.current!.getBoundingClientRect();
-              return destino.top + destino.height / 2 - origem.top - origem.height / 2;
-            },
-            duration: 1, ease: 'power3.inOut',
-          })
-          .to(tela!, { autoAlpha: 1, duration: .6 }, '-=.5')
-          .to(logoAbertura.current, { opacity: 0, duration: .2 }, '-=.1')
-          .to(marca.current, { opacity: 1, duration: .2 }, '<')
-          .to(abertura.current, { autoAlpha: 0, pointerEvents: 'none', duration: .3 }, '<');
-        limite = window.setTimeout(() => tl.progress(1), 5500);
+        gsap.set('.opening-word', { opacity: 0, y: 10, scale: .96 });
+        // Mede as duas marcas uma vez, após a fonte, e anima só transform/opacity.
+        const fontes = document.fonts?.load('700 64px Newsreader') ?? Promise.resolve();
+        void Promise.race([fontes, new Promise(resolve => { esperaFonte = window.setTimeout(resolve, 900); })]).catch(() => {}).then(() => {
+          if (cancelado || canceladoMedia) return;
+          contexto.add(() => {
+          if (!logoAbertura.current || !marca.current) return;
+          window.clearTimeout(esperaFonte);
+          const origem = logoAbertura.current.getBoundingClientRect();
+          const destino = marca.current.getBoundingClientRect();
+          const tl = gsap.timeline({ onComplete: () => setEmAbertura(false) });
+          tl.to('.opening-ring', { rotation: 360, duration: .82, ease: 'power2.inOut' }, 0)
+            .to('.opening-ring', { opacity: 0, scale: 1.12, duration: .24, ease: 'power2.out' }, .65)
+            .to('.opening-word', { opacity: 1, y: 0, scale: 1, duration: .42, ease: 'power2.out' }, .65)
+            .to(logoAbertura.current, {
+              x: destino.left + destino.width / 2 - origem.left - origem.width / 2,
+              y: destino.top + destino.height / 2 - origem.top - origem.height / 2,
+              scale: destino.width / Math.max(1, origem.width),
+              duration: .72, ease: 'power3.inOut',
+            }, 1.3)
+            .to(tela!, { autoAlpha: 1, duration: .38 }, 1.65)
+            .to(logoAbertura.current, { opacity: 0, duration: .16 }, 1.98)
+            .to(marca.current, { opacity: 1, duration: .16 }, 1.98)
+            .to(abertura.current, { autoAlpha: 0, pointerEvents: 'none', duration: .22 }, 1.98);
+          });
+        });
       }, pagina);
-      return () => { window.clearTimeout(limite); contexto.revert(); };
+      return () => { canceladoMedia = true; window.clearTimeout(esperaFonte); contexto.revert(); };
     });
-    return () => media.revert();
+    return () => { cancelado = true; media.revert(); };
   }, []);
 
   const alternar = () => {
@@ -83,11 +89,11 @@ export function TelaAutenticacao(props: TelaAutenticacaoProps) {
     setAuthErro(null); setAuthAviso(null); setMostrarSenha(false);
   };
 
-  return <div className="auth-shell" data-tema={tema} ref={pagina}>
+  return <div className="auth-shell" data-tema={tema} data-abertura={emAbertura} ref={pagina}>
     <div id="splash-screen" className="auth-opening" ref={abertura} aria-hidden="true">
       <div className="splash-logo-container" id="logo-wrapper" ref={logoAbertura}>
-        <div className="svg-logo-box"><svg viewBox="0 0 100 100" width="100%" height="100%"><path className="opening-morph" d="M 50,10 A 40,40 0 1,1 49.9,10 Z" fill="none" stroke="currentColor" strokeWidth="12" strokeLinecap="round" strokeLinejoin="round" /></svg></div>
-        <span className="text-omo opening-omo">omo</span>
+        <span className="opening-ring" />
+        <MarcaTomo className="opening-word" />
       </div>
     </div>
     <div id="login-screen" className="auth-screen">
@@ -95,7 +101,7 @@ export function TelaAutenticacao(props: TelaAutenticacaoProps) {
       <main className="auth-main">
         <div className="auth-illustration" aria-hidden="true"><MascoteLogin /></div>
         <section className="auth-form-content" aria-labelledby="auth-title">
-          <span className="auth-brand" ref={marca} aria-label="Tomo"><span className="brand-logo auth-brand-word">To<span>mo</span></span></span>
+          <span className="auth-brand" ref={marca} aria-label="Tomo"><MarcaTomo className="auth-brand-word" /></span>
           <h1 id="auth-title">{modoAuth === 'login' ? 'Entrar no Tomo' : 'Criar sua conta'}</h1>
           <form className="auth-form" onSubmit={onSubmit} aria-busy={authEnviando}>
             {modoAuth === 'cadastro' && <div className="auth-field">

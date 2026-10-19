@@ -19,6 +19,7 @@ import type {
 } from './tipos';
 
 export * from './tipos';
+export * from './ia';
 export { isSupabaseConfigured, erroConfiguracaoSupabase };
 
 // ------------------------------------------------------------------------------

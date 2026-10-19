@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    { "source": "/.well-known/oauth-authorization-server/api/mcp-oauth", "destination": "https://qwfqeaszyljeycewixzs.supabase.co/functions/v1/mcp-oauth/.well-known/oauth-authorization-server" },
+    { "source": "/.well-known/oauth-protected-resource/api/mcp", "destination": "https://qwfqeaszyljeycewixzs.supabase.co/functions/v1/tomo-mcp/.well-known/oauth-protected-resource" },
+    { "source": "/api/mcp-oauth/:path*", "destination": "https://qwfqeaszyljeycewixzs.supabase.co/functions/v1/mcp-oauth/:path*" },
+    { "source": "/api/mcp/:path*", "destination": "https://qwfqeaszyljeycewixzs.supabase.co/functions/v1/tomo-mcp/:path*" }
+  ]
+}
