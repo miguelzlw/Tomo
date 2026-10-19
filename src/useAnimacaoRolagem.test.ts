@@ -46,9 +46,11 @@ it('reveals on entry and hides again when scrolling back above the block', () =>
   expect(atributos.get('data-scroll-visible')).toBe('true');
 });
 
-it('keeps content above the viewport visible and cleans observers on unmount', () => {
+it('hides blocks above the viewport, reveals them on return, and cleans up', () => {
   const { atributos, mover, desconectar } = preparar();
   mover(-300, false);
+  expect(atributos.get('data-scroll-visible')).toBe('false');
+  mover(100, true);
   expect(atributos.get('data-scroll-visible')).toBe('true');
   efeitos.pop()!();
   expect(desconectar).toHaveBeenCalledOnce();
@@ -56,5 +58,7 @@ it('keeps content above the viewport visible and cleans observers on unmount', (
 });
 
 it('starts with visible content when reduced motion is preferred', () => {
-  expect(preparar(true).atributos.get('data-scroll-visible')).toBe('true');
+  const { atributos, mover } = preparar(true);
+  mover(-300, false);
+  expect(atributos.get('data-scroll-visible')).toBe('true');
 });

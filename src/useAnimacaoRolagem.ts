@@ -8,10 +8,8 @@ export function useAnimacaoRolagem(ref: RefObject<HTMLElement | null>, pagina: s
     const preferencia = window.matchMedia('(prefers-reduced-motion: reduce)');
     const elementos = new Set<HTMLElement>();
     const observer = new IntersectionObserver((entradas) => {
-      entradas.forEach(({ target, isIntersecting, boundingClientRect, rootBounds }) => {
-        // Keep blocks above the viewport visible: only reverse at the lower edge.
-        const abaixo = boundingClientRect.top >= (rootBounds?.bottom ?? window.innerHeight);
-        target.setAttribute('data-scroll-visible', String(isIntersecting || !abaixo));
+      entradas.forEach(({ target, isIntersecting }) => {
+        target.setAttribute('data-scroll-visible', String(preferencia.matches || isIntersecting));
       });
     }, { rootMargin: '0px 0px -48px 0px', threshold: 0 });
     const registrar = () => {

@@ -3,6 +3,9 @@ import { ArrowRight, BookOpen } from 'lucide-react';
 import type { Livro, ProgressoLeitura } from './dados/tipos';
 
 interface InicioProps {
+  carregando?: boolean;
+  erro?: string;
+  tentarNovamente?: () => void;
   salvos: Livro[];
   leituras: ProgressoLeitura[];
   abrindoLivro: boolean;
@@ -11,7 +14,7 @@ interface InicioProps {
   explorar: () => void;
 }
 
-export function Inicio({ salvos, leituras, abrindoLivro, abrirLivro, detalhesLivro, explorar }: InicioProps) {
+export function Inicio({ carregando = false, erro, tentarNovamente, salvos, leituras, abrindoLivro, abrirLivro, detalhesLivro, explorar }: InicioProps) {
   const estante = useRef<HTMLDivElement>(null);
   const [capacidade, setCapacidade] = useState(4);
   const [verTodos, setVerTodos] = useState(false);
@@ -27,12 +30,22 @@ export function Inicio({ salvos, leituras, abrindoLivro, abrirLivro, detalhesLiv
     });
     observer.observe(elemento);
     return () => observer.disconnect();
-  }, []);
+  }, [carregando, erro]);
 
   const destaque = leituras[0];
   const livro = destaque?.livro;
   const total = livro?.total_paginas;
   const excedeEstante = salvos.length > capacidade;
+
+  if (carregando) return <div className="dashboard-layout literary-home" aria-busy="true" role="status" aria-label="Carregando suas leituras">
+    <header className="home-intro"><h1>Suas leituras</h1></header>
+    <div className="home-loading-placeholder" aria-hidden="true" />
+  </div>;
+
+  if (erro) return <section className="reading-empty" role="alert">
+    <h1>Suas leituras</h1><p>{erro}</p>
+    <button className="btn-primary" onClick={tentarNovamente}>Tentar novamente</button>
+  </section>;
 
   return <div className="dashboard-layout literary-home">
     <header className="home-intro">

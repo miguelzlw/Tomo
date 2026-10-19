@@ -1,11 +1,12 @@
 import { BotaoTema } from './tema';
+import { EntradaLivro } from './EntradaLivro';
 import { useAnimacaoRolagem } from './useAnimacaoRolagem';
 import { MarcaTomo } from './MarcaTomo';
 import { BotaoConectarIA, JanelaConectarIA } from './ConectarIA';
 import { CriarComIA } from './CriarComIA';
 import { prepararInsercaoIA } from './ia';
 import { ConsultasCompartilhadas } from './dados/consultasCompartilhadas';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { dividirTextoEmPaginas } from './paginacao';
 import { DetalhesLivro } from './DetalhesLivro';
 import { PerfilProprio } from './PerfilProprio';
@@ -113,6 +114,13 @@ export function App() {
   const [authErro, setAuthErro] = useState<string | null>(null);
   const [authAviso, setAuthAviso] = useState<string | null>(null);
   const [authEnviando, setAuthEnviando] = useState(false);
+  const [entradaLogin, setEntradaLogin] = useState(false);
+  const perfilAposEntrada = useRef<Perfil | null>(null);
+  const prepararTelaAposEntrada = useCallback(() => {
+    if (perfilAposEntrada.current) setUsuario(perfilAposEntrada.current);
+    perfilAposEntrada.current = null;
+  }, []);
+  const concluirEntradaLogin = useCallback(() => setEntradaLogin(false), []);
 
   // Navegação Principal (5 ícones)
   const [abaAtual, setAbaAtual] = useState<'dashboard' | 'feed' | 'criar_editar' | 'pesquisa' | 'perfil'>('dashboard');
@@ -168,6 +176,9 @@ export function App() {
 
   // Estados de Dados do Dashboard
   const [continuarLendo, setContinuarLendo] = useState<ProgressoLeitura[]>([]);
+  const [inicioCarregando, setInicioCarregando] = useState(true);
+  const [erroInicio, setErroInicio] = useState('');
+  const [tentativaInicio, setTentativaInicio] = useState(0);
   const [salvosParaLer, setSalvosParaLer] = useState<Livro[]>([]);
   const [salvandoParaLer, setSalvandoParaLer] = useState<string | null>(null);
   const [notificacoes, setNotificacoes] = useState<Notificacao[]>([]);
@@ -247,6 +258,7 @@ export function App() {
       consultasAbas.current.limpar(); donoConsultas.current = null;
       setSalvosParaLer([]); setContinuarLendo([]); setFeedLivros([]);
       setMeusRascunhos([]); setMeusLivrosLancados([]); setNotificacoes([]); setBuscasRecentes([]);
+      setInicioCarregando(true); setErroInicio('');
       return;
     }
     const primeiro = donoConsultas.current !== usuario.id;
@@ -255,13 +267,20 @@ export function App() {
     if (visaoAtiva !== 'principal') return;
     let ativo = true;
     const carregar = <T,>(chave: string, consulta: () => Promise<T>, aplicar: (valor: T) => void) => {
-      void consultasAbas.current.consultar(chave, consulta).then((valor) => {
+      return consultasAbas.current.consultar(chave, consulta).then((valor) => {
         if (ativo && donoConsultas.current === usuario.id) aplicar(valor);
-      }).catch((erro) => console.error('Não foi possível atualizar ' + chave, erro));
+        return true;
+      }).catch((erro) => { console.error('Não foi possível atualizar ' + chave, erro); return false; });
     };
     if (primeiro || abaAtual === 'dashboard') {
-      carregar('salvos', listarSalvosParaLer, setSalvosParaLer);
-      carregar('leituras', listarContinuarLendo, setContinuarLendo);
+      void Promise.all([
+        carregar('salvos', listarSalvosParaLer, setSalvosParaLer),
+        carregar('leituras', listarContinuarLendo, setContinuarLendo),
+      ]).then((resultados) => {
+        if (!ativo || donoConsultas.current !== usuario.id) return;
+        setErroInicio(resultados.every(Boolean) ? '' : 'Não foi possível carregar suas leituras. Tente novamente.');
+        setInicioCarregando(false);
+      });
       carregar('notificacoes', listarNotificacoes, setNotificacoes);
       if (usuario.papel === 'admin') carregar('pendentes', listarContasPendentes, setContasPendentes);
     }
@@ -270,7 +289,7 @@ export function App() {
     if (primeiro || abaAtual === 'criar_editar' || abaAtual === 'perfil') carregar('publicados', listarMeusLivros, setMeusLivrosLancados);
     if (primeiro || abaAtual === 'pesquisa') carregar('buscas', listarBuscasRecentes, setBuscasRecentes);
     return () => { ativo = false; };
-  }, [usuario, abaAtual, visaoAtiva]);
+  }, [usuario, abaAtual, visaoAtiva, tentativaInicio]);
 
   useEffect(() => {
     let ativo = true;
@@ -388,10 +407,14 @@ export function App() {
   // --- HANDLERS DE AUTH ---
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (authEnviando) return;
+    if (authEnviando || entradaLogin) return;
     setAuthErro(null);
     setAuthAviso(null);
     setAuthEnviando(true);
+    if (modoAuth === 'login') {
+      perfilAposEntrada.current = null;
+      setEntradaLogin(true);
+    }
     try {
       if (modoAuth === 'cadastro') {
         const res = await cadastrarConta(authEmail, authSenha, authUsername);
@@ -406,7 +429,13 @@ export function App() {
         if (!res.sucesso) {
           setAuthErro(res.mensagem || 'Credenciais inválidas.');
         } else if (res.perfil) {
+          perfilAposEntrada.current = res.perfil;
+          setInicioCarregando(true);
+          setErroInicio('');
+          // Start the dashboard requests while the book is still opening.
           setUsuario(res.perfil);
+          setAbaAtual('dashboard');
+          setVisaoAtiva('principal');
         } else {
           setAuthErro('A conta foi autenticada, mas o perfil não foi encontrado. Verifique a configuração do Supabase.');
         }
@@ -699,6 +728,11 @@ export function App() {
     }
   };
 
+  const comEntradaLogin = (conteudo: React.ReactNode) => <>
+    {entradaLogin && <EntradaLivro aguardando={authEnviando || (usuario?.status === 'aprovado' && inicioCarregando)} onPreparar={prepararTelaAposEntrada} onConcluir={concluirEntradaLogin} />}
+    <div inert={entradaLogin}>{conteudo}</div>
+  </>;
+
   // --- SE TELA DE CARREGAMENTO INICIAL ---
   if (carregandoAuth) {
     return (
@@ -712,7 +746,7 @@ export function App() {
 
   // --- TELA DE LOGIN / CADASTRO COM ANIMAÇÃO GSAP (US-01, US-03, RNF-05) ---
   if (!usuario) {
-    return (
+    return comEntradaLogin(
       <TelaAutenticacao
         modoAuth={modoAuth}
         setModoAuth={setModoAuth}
@@ -734,7 +768,7 @@ export function App() {
 
   // --- SE CONTA PENDENTE OU BLOQUEADA (RF-02, RF-03, Seção 5) ---
   if (usuario.status !== 'aprovado') {
-    return (
+    return comEntradaLogin(
       <div className="app-container" style={{ padding: 20 }}>
         <header className="top-header">
           <div className="brand-badge">
@@ -1039,7 +1073,7 @@ export function App() {
   }
 
   // --- TELA PRINCIPAL COM AS 5 ABAS (RF-04) ---
-  return (
+  return comEntradaLogin(
     <div className="app-container">
       {/* Top Header */}
       <header className="top-header">
@@ -1157,7 +1191,9 @@ export function App() {
         </section>}
         {/* 1. ABA DASHBOARD (US-09, US-16, US-17) */}
         {visaoAtiva === 'principal' && abaAtual === 'dashboard' && (
-          <Inicio salvos={salvosParaLer} leituras={continuarLendo} abrindoLivro={abrindoLivro} abrirLivro={abrirLeitura} detalhesLivro={abrirDetalhes} explorar={() => setAbaAtual('feed')} />
+          <Inicio carregando={inicioCarregando} erro={erroInicio} tentarNovamente={() => {
+            consultasAbas.current.limpar(); setInicioCarregando(true); setErroInicio(''); setTentativaInicio((valor) => valor + 1);
+          }} salvos={salvosParaLer} leituras={continuarLendo} abrindoLivro={abrindoLivro} abrirLivro={abrirLeitura} detalhesLivro={abrirDetalhes} explorar={() => setAbaAtual('feed')} />
         )}
 
         {/* 2. ABA FEED (US-13, US-14) */}
