@@ -28,6 +28,8 @@ function preparar(reduzido = false) {
   });
   vi.stubGlobal('MutationObserver', class { observe = vi.fn(); disconnect = vi.fn(); });
   const raiz = { querySelectorAll: () => [bloco], contains: () => true };
+  // React está simulado acima para executar o efeito e conferir sua limpeza sem montar uma tela.
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   useAnimacaoRolagem({ current: raiz as unknown as HTMLElement }, 'dashboard');
   return {
     atributos, desconectar,

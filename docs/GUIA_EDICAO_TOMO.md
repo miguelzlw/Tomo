@@ -1,10 +1,12 @@
 # Onde mexer no Tomo
-- `src/modelos/macaco3d.ts`: corpo, proporções, orelhas, mãos, rabo e cores dos materiais do macaco 3D.
-- `src/modelos/cenaMacacoLivro.ts`: tamanho e posição do macaco, livro, câmera, iluminação e sombras da entrada.
-- `src/animacaoMacaco.ts`: intervalos de 4 segundos para leitura e 16 segundos para as palmas e a cambalhota.
-- `src/MacacoLivro3D.tsx`: carrega a cena no desktop e mantém a ilustração anterior como alternativa se o 3D falhar.
+- `src/MascoteLogin.tsx`: arte atual do login, com `macaco-recorte.webp`, folhas e papéis em órbita.
+- `src/MovimentoMacaco.tsx` e `src/index.css`: camadas e movimentos do mascote e estilos da aplicação.
+- `src/EntradaLivro.tsx`: animação de abertura e folhear do livro durante a entrada.
+- `src/modelos/macaco3d.ts`: corpo, proporções e materiais do modelo do estúdio separado em `/macaco-3d.html`.
+- `src/preview3d/viewer.ts`: câmera, iluminação, controles e exportação do estúdio 3D.
 - `src/TelaAutenticacao.tsx`: campos, botões e mensagens do formulário; `src/App.tsx`: envio do cadastro e login.
 - `.env`: URL da API e chave pública do Supabase; use os nomes `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` neste projeto Vite.
 - Copie os valores dentro do projeto Supabase, em Connect ou Settings → API Keys; use publishable/anon, nunca senha ou service_role.
 - Depois de salvar o `.env`, recarregue o site; se necessário, reinicie o servidor de desenvolvimento que já está rodando.
 - `npm run build` compila o projeto e aponta erros de TypeScript; não altera contas no Supabase.
+- `npm test` executa os testes; `vitest.config.ts` exclui as cópias temporárias de `.tmp`.

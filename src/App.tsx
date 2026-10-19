@@ -33,12 +33,8 @@ import {
   X,
   AlertCircle,
   Sparkles,
-  ArrowRight,
   Plus,
   Trash2,
-  RotateCcw,
-  CheckSquare,
-  Square,
   Camera,
 } from 'lucide-react';
 import {
@@ -76,10 +72,6 @@ import {
   registrarSinalSessao,
   listarAtividadeUsuarios,
   moverParaLixeira,
-  moverVariosParaLixeira,
-  restaurarDaLixeira,
-  excluirDefinitivamente,
-  listarLixeira,
 } from './dados';
 import type {
   Perfil,
@@ -143,7 +135,6 @@ export function App() {
     setIrEstante(false);
   }, [irEstante]);
   const [mostrarModalAdmin, setMostrarModalAdmin] = useState(false);
-  const [mostrarModalLixeira, setMostrarModalLixeira] = useState(false);
 
   const [editandoPerfil, setEditandoPerfil] = useState(false);
   const [perfilNome, setPerfilNome] = useState('');
@@ -168,11 +159,6 @@ export function App() {
   const [seguindoPerfilVisitado, setSeguindoPerfilVisitado] = useState(false);
   const [menuPerfilAberto, setMenuPerfilAberto] = useState(false);
   const menuPerfilRef = useRef<HTMLDivElement>(null);
-
-  // Lixeira e Seleção em Lote
-  const [itensLixeira, setItensLixeira] = useState<Livro[]>([]);
-  const [modoSelecaoRascunhos, setModoSelecaoRascunhos] = useState(false);
-  const [rascunhosSelecionados, setRascunhosSelecionados] = useState<string[]>([]);
 
   // Estados de Dados do Dashboard
   const [continuarLendo, setContinuarLendo] = useState<ProgressoLeitura[]>([]);
@@ -660,12 +646,6 @@ export function App() {
     }
   };
 
-  const abrirLixeiraModal = async () => {
-    const itens = await listarLixeira();
-    setItensLixeira(itens);
-    setMostrarModalLixeira(true);
-  };
-
   const handleMoverParaLixeiraEditor = async () => {
     if (!editLivroId) return;
     if (confirm('Deseja mover este livro para a lixeira? Você poderá restaurá-lo depois se quiser.')) {
@@ -715,16 +695,6 @@ export function App() {
     // Avança para a última página inserida
     if (chunks.length > 1) {
       setEditPaginaAtual(editPaginaAtual + chunks.length - 1);
-    }
-  };
-
-  const handleExcluirRascunhosSelecionados = async () => {
-    if (rascunhosSelecionados.length === 0) return;
-    if (confirm(`Mover ${rascunhosSelecionados.length} rascunho(s) para a lixeira?`)) {
-      await moverVariosParaLixeira(rascunhosSelecionados);
-      setRascunhosSelecionados([]);
-      setModoSelecaoRascunhos(false);
-      listarMeusRascunhos().then(setMeusRascunhos);
     }
   };
 
