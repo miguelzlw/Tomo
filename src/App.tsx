@@ -83,7 +83,9 @@ import type {
   Sessao,
 } from './dados';
 
-function ResumoPerfil({ perfil, proprio = false }: { perfil: Perfil; proprio?: boolean }) {
+// Otimização Bolt: Memoiza o ResumoPerfil para prevenir re-renderizações desnecessárias
+// durante atualizações do estado global do App quando o perfil visualizado não mudou.
+const ResumoPerfil = React.memo(function ResumoPerfil({ perfil, proprio = false }: { perfil: Perfil; proprio?: boolean }) {
   return <div className="profile-summary">
     <div>
       <span className="avatar">{perfil.foto_url ? <img src={perfil.foto_url} alt={proprio ? 'Sua foto de perfil' : `Foto de ${perfil.nome_usuario}`} /> : perfil.nome_usuario.charAt(0).toUpperCase()}</span>
@@ -93,7 +95,7 @@ function ResumoPerfil({ perfil, proprio = false }: { perfil: Perfil; proprio?: b
       </div>
     </div>
   </div>;
-}
+});
 
 export function App() {
   // Estado de Autenticação
