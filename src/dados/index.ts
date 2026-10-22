@@ -749,15 +749,11 @@ export async function listarLivrosDoAutor(autorId: string): Promise<Livro[]> {
   }
 
   const livros = carregarLocal<Livro[]>('livros', []);
-  const filtrados: Livro[] = [];
-  for (const l of livros) {
-    if (l.autor_id === autorId && l.situacao === 'lancado' && !l.lixeira) {
-      if (await checarPermissaoLivroLocal(usuario, l)) {
-        filtrados.push(l);
-      }
-    }
-  }
-  return filtrados;
+  // Otimização: pré-carrega conjunto de amigos para filtragem síncrona O(1) em memória
+  const amigos = obterConjuntoAmigosMutuosLocal(usuario.id);
+  return livros.filter(
+    (l) => l.autor_id === autorId && l.situacao === 'lancado' && !l.lixeira && checarPermissaoLivroLocalSincrono(usuario, l, amigos)
+  );
 }
 
 export async function listarFeed(): Promise<Livro[]> {
@@ -777,16 +773,11 @@ export async function listarFeed(): Promise<Livro[]> {
   }
 
   const livros = carregarLocal<Livro[]>('livros', []);
-  const filtrados: Livro[] = [];
-
-  for (const livro of livros) {
-    if (livro.situacao === 'lancado' && !livro.lixeira) {
-      const ok = await checarPermissaoLivroLocal(usuario, livro);
-      if (ok) filtrados.push(livro);
-    }
-  }
-
-  return filtrados;
+  // Otimização: pré-carrega mapa de amizades para evitar N leituras assíncronas do localStorage no loop
+  const amigos = obterConjuntoAmigosMutuosLocal(usuario.id);
+  return livros.filter(
+    (livro) => livro.situacao === 'lancado' && !livro.lixeira && checarPermissaoLivroLocalSincrono(usuario, livro, amigos)
+  );
 }
 
 export async function obterPaginasDoLivro(livroId: string): Promise<Pagina[]> {
@@ -917,11 +908,13 @@ export async function listarContinuarLendo(): Promise<ProgressoLeitura[]> {
 
   const progresso = carregarLocal<ProgressoLeitura[]>('progresso_leitura', []);
   const livros = carregarLocal<Livro[]>('livros', []);
+  // Otimização: pré-carrega conjunto de amigos para filtragem síncrona
+  const amigos = obterConjuntoAmigosMutuosLocal(usuario.id);
   const lista: ProgressoLeitura[] = [];
 
   for (const p of progresso.filter((item) => item.usuario_id === usuario.id)) {
     const livro = livros.find((l) => l.id === p.livro_id);
-    if (livro && (await checarPermissaoLivroLocal(usuario, livro))) {
+    if (livro && checarPermissaoLivroLocalSincrono(usuario, livro, amigos)) {
       lista.push({ ...p, livro });
     }
   }
@@ -1004,11 +997,13 @@ export async function listarSalvosParaLer(): Promise<Livro[]> {
 
   const salvos = carregarLocal<LivroSalvo[]>('salvos', []);
   const livros = carregarLocal<Livro[]>('livros', []);
+  // Otimização: pré-carrega conjunto de amigos para filtragem síncrona
+  const amigos = obterConjuntoAmigosMutuosLocal(usuario.id);
   const resultado: Livro[] = [];
 
   for (const s of salvos.filter((item) => item.usuario_id === usuario.id)) {
     const livro = livros.find((l) => l.id === s.livro_id);
-    if (livro && (await checarPermissaoLivroLocal(usuario, livro))) {
+    if (livro && checarPermissaoLivroLocalSincrono(usuario, livro, amigos)) {
       resultado.push(livro);
     }
   }
@@ -1206,15 +1201,16 @@ export async function buscarLivrosEPerfis(termo: string): Promise<{ livros: Livr
 
   const todosLivros = carregarLocal<Livro[]>('livros', []);
   const todosPerfis = carregarLocal<Perfil[]>('perfis', []);
+  // Otimização: pré-carrega conjunto de amigos para filtragem síncrona O(1)
+  const amigos = obterConjuntoAmigosMutuosLocal(usuario.id);
 
-  const livrosEncontrados: Livro[] = [];
-  for (const livro of todosLivros) {
-    if (livro.situacao === 'lancado' && !livro.lixeira && livro.titulo.toLowerCase().includes(termoLimpo.toLowerCase())) {
-      if (await checarPermissaoLivroLocal(usuario, livro)) {
-        livrosEncontrados.push(livro);
-      }
-    }
-  }
+  const livrosEncontrados = todosLivros.filter(
+    (livro) =>
+      livro.situacao === 'lancado' &&
+      !livro.lixeira &&
+      livro.titulo.toLowerCase().includes(termoLimpo.toLowerCase()) &&
+      checarPermissaoLivroLocalSincrono(usuario, livro, amigos)
+  );
 
   const perfisEncontrados = todosPerfis.filter(
     (p) => p.status === 'aprovado' && p.nome_usuario.toLowerCase().includes(termoLimpo.toLowerCase())
@@ -1357,7 +1353,26 @@ export async function listarAtividadeUsuarios(): Promise<Sessao[]> {
 // ------------------------------------------------------------------------------
 // FUNÇÃO AUXILIAR DE MATRIZ DE PERMISSÃO (SEÇÃO 5)
 // ------------------------------------------------------------------------------
-async function checarPermissaoLivroLocal(usuario: Perfil | null, livro: Livro): Promise<boolean> {
+function obterConjuntoAmigosMutuosLocal(usuarioId: string): Set<string> {
+  const seguidores = carregarLocal<Array<{ seguidor_id: string; seguido_id: string }>>('seguidores', []);
+  const seguindo = new Set<string>();
+  const seguidoresDeVolta = new Set<string>();
+  for (const s of seguidores) {
+    if (s.seguidor_id === usuarioId) seguindo.add(s.seguido_id);
+    if (s.seguido_id === usuarioId) seguidoresDeVolta.add(s.seguidor_id);
+  }
+  const amigos = new Set<string>();
+  for (const id of seguindo) {
+    if (seguidoresDeVolta.has(id)) amigos.add(id);
+  }
+  return amigos;
+}
+
+/**
+ * Checagem síncrona em memória da matriz de permissão de livros.
+ * Evita releituras repetidas do localStorage e trocas de microtask no event loop.
+ */
+function checarPermissaoLivroLocalSincrono(usuario: Perfil | null, livro: Livro, amigosMutuos: Set<string>): boolean {
   // Sem usuário logado: ninguém vê nada
   if (!usuario) return false;
 
@@ -1378,8 +1393,7 @@ async function checarPermissaoLivroLocal(usuario: Perfil | null, livro: Livro): 
 
   // Lançado "amigos": somente se houver follow mútuo
   if (livro.visibilidade === 'amigos') {
-    const mutuo = await verificarAmizadeMutua(livro.autor_id);
-    return mutuo;
+    return amigosMutuos.has(livro.autor_id);
   }
 
   // Lançado "todos" (publico): visível para qualquer usuário aprovado (e admin)
@@ -1388,4 +1402,10 @@ async function checarPermissaoLivroLocal(usuario: Perfil | null, livro: Livro): 
   }
 
   return false;
+}
+
+async function checarPermissaoLivroLocal(usuario: Perfil | null, livro: Livro): Promise<boolean> {
+  if (!usuario) return false;
+  const amigos = obterConjuntoAmigosMutuosLocal(usuario.id);
+  return checarPermissaoLivroLocalSincrono(usuario, livro, amigos);
 }
