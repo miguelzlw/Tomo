@@ -19,3 +19,13 @@ it('mantém a palavra que termina exatamente no limite', () => {
 it('avisa sem truncar quando uma palavra sozinha excede o limite', () => {
   expect(() => dividirTextoEmPaginas('a'.repeat(1501))).toThrow('palavra');
 });
+it('processa um texto longo eficientemente mantendo a integridade', () => {
+  const textoLongo = 'Era uma vez um grande clássico da literatura que possuía muitas páginas. '.repeat(2000); // ~146.000 caracteres
+  const inicio = performance.now();
+  const paginas = dividirTextoEmPaginas(textoLongo, 1500);
+  const duracao = performance.now() - inicio;
+
+  expect(paginas.join('')).toBe(textoLongo);
+  expect(paginas.every((p) => p.length <= 1500)).toBe(true);
+  expect(duracao).toBeLessThan(100); // Execução extremamente rápida (< 100ms)
+});
