@@ -6,7 +6,7 @@ import { BotaoConectarIA, JanelaConectarIA } from './ConectarIA';
 import { CriarComIA } from './CriarComIA';
 import { prepararInsercaoIA } from './ia';
 import { ConsultasCompartilhadas } from './dados/consultasCompartilhadas';
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { dividirTextoEmPaginas } from './paginacao';
 import { DetalhesLivro } from './DetalhesLivro';
 import { PerfilProprio } from './PerfilProprio';
@@ -569,8 +569,10 @@ export function App() {
     }
   };
 
+  const salvosIds = useMemo(() => new Set(salvosParaLer.map((l) => l.id)), [salvosParaLer]);
+
   const botaoSalvarLivro = (livro: Livro, compacto = false) => {
-    const salvo = salvosParaLer.some((l) => l.id === livro.id);
+    const salvo = salvosIds.has(livro.id);
     const rotulo = salvo ? 'Remover dos salvos' : 'Salvar para ler depois';
     return <button className={`btn-secondary save-book-button ${compacto ? 'save-book-compact' : ''}`} aria-label={rotulo} title={rotulo} aria-pressed={salvo} disabled={salvandoParaLer !== null} onClick={(e) => { e.stopPropagation(); void salvarParaDepois(livro); }}>
       <Bookmark size={20} fill={salvo ? 'currentColor' : 'none'} />
