@@ -749,15 +749,15 @@ export async function listarLivrosDoAutor(autorId: string): Promise<Livro[]> {
   }
 
   const livros = carregarLocal<Livro[]>('livros', []);
-  const filtrados: Livro[] = [];
-  for (const l of livros) {
-    if (l.autor_id === autorId && l.situacao === 'lancado' && !l.lixeira) {
-      if (await checarPermissaoLivroLocal(usuario, l)) {
-        filtrados.push(l);
+  const checagens = await Promise.all(
+    livros.map(async (l) => {
+      if (l.autor_id === autorId && l.situacao === 'lancado' && !l.lixeira) {
+        if (await checarPermissaoLivroLocal(usuario, l)) return l;
       }
-    }
-  }
-  return filtrados;
+      return null;
+    })
+  );
+  return checagens.filter((l): l is Livro => l !== null);
 }
 
 export async function listarFeed(): Promise<Livro[]> {
@@ -777,16 +777,15 @@ export async function listarFeed(): Promise<Livro[]> {
   }
 
   const livros = carregarLocal<Livro[]>('livros', []);
-  const filtrados: Livro[] = [];
-
-  for (const livro of livros) {
-    if (livro.situacao === 'lancado' && !livro.lixeira) {
-      const ok = await checarPermissaoLivroLocal(usuario, livro);
-      if (ok) filtrados.push(livro);
-    }
-  }
-
-  return filtrados;
+  const checagens = await Promise.all(
+    livros.map(async (livro) => {
+      if (livro.situacao === 'lancado' && !livro.lixeira) {
+        if (await checarPermissaoLivroLocal(usuario, livro)) return livro;
+      }
+      return null;
+    })
+  );
+  return checagens.filter((l): l is Livro => l !== null);
 }
 
 export async function obterPaginasDoLivro(livroId: string): Promise<Pagina[]> {
@@ -917,16 +916,21 @@ export async function listarContinuarLendo(): Promise<ProgressoLeitura[]> {
 
   const progresso = carregarLocal<ProgressoLeitura[]>('progresso_leitura', []);
   const livros = carregarLocal<Livro[]>('livros', []);
-  const lista: ProgressoLeitura[] = [];
+  const itensUsuario = progresso.filter((item) => item.usuario_id === usuario.id);
 
-  for (const p of progresso.filter((item) => item.usuario_id === usuario.id)) {
-    const livro = livros.find((l) => l.id === p.livro_id);
-    if (livro && (await checarPermissaoLivroLocal(usuario, livro))) {
-      lista.push({ ...p, livro });
-    }
-  }
+  const checagens = await Promise.all(
+    itensUsuario.map(async (p) => {
+      const livro = livros.find((l) => l.id === p.livro_id);
+      if (livro && (await checarPermissaoLivroLocal(usuario, livro))) {
+        return { ...p, livro };
+      }
+      return null;
+    })
+  );
 
-  return lista.sort((a, b) => new Date(b.atualizado_em).getTime() - new Date(a.atualizado_em).getTime());
+  return checagens
+    .filter((item): item is ProgressoLeitura => item !== null)
+    .sort((a, b) => new Date(b.atualizado_em).getTime() - new Date(a.atualizado_em).getTime());
 }
 
 export async function alternarSalvarParaLer(livroId: string): Promise<boolean> {
@@ -1004,16 +1008,19 @@ export async function listarSalvosParaLer(): Promise<Livro[]> {
 
   const salvos = carregarLocal<LivroSalvo[]>('salvos', []);
   const livros = carregarLocal<Livro[]>('livros', []);
-  const resultado: Livro[] = [];
+  const itensUsuario = salvos.filter((item) => item.usuario_id === usuario.id);
 
-  for (const s of salvos.filter((item) => item.usuario_id === usuario.id)) {
-    const livro = livros.find((l) => l.id === s.livro_id);
-    if (livro && (await checarPermissaoLivroLocal(usuario, livro))) {
-      resultado.push(livro);
-    }
-  }
+  const checagens = await Promise.all(
+    itensUsuario.map(async (s) => {
+      const livro = livros.find((l) => l.id === s.livro_id);
+      if (livro && (await checarPermissaoLivroLocal(usuario, livro))) {
+        return livro;
+      }
+      return null;
+    })
+  );
 
-  return resultado;
+  return checagens.filter((l): l is Livro => l !== null);
 }
 
 // ------------------------------------------------------------------------------
@@ -1207,14 +1214,15 @@ export async function buscarLivrosEPerfis(termo: string): Promise<{ livros: Livr
   const todosLivros = carregarLocal<Livro[]>('livros', []);
   const todosPerfis = carregarLocal<Perfil[]>('perfis', []);
 
-  const livrosEncontrados: Livro[] = [];
-  for (const livro of todosLivros) {
-    if (livro.situacao === 'lancado' && !livro.lixeira && livro.titulo.toLowerCase().includes(termoLimpo.toLowerCase())) {
-      if (await checarPermissaoLivroLocal(usuario, livro)) {
-        livrosEncontrados.push(livro);
+  const checagensLivros = await Promise.all(
+    todosLivros.map(async (livro) => {
+      if (livro.situacao === 'lancado' && !livro.lixeira && livro.titulo.toLowerCase().includes(termoLimpo.toLowerCase())) {
+        if (await checarPermissaoLivroLocal(usuario, livro)) return livro;
       }
-    }
-  }
+      return null;
+    })
+  );
+  const livrosEncontrados = checagensLivros.filter((l): l is Livro => l !== null);
 
   const perfisEncontrados = todosPerfis.filter(
     (p) => p.status === 'aprovado' && p.nome_usuario.toLowerCase().includes(termoLimpo.toLowerCase())
