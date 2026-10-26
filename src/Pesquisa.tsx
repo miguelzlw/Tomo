@@ -4,7 +4,8 @@ import type { BuscaRecente, Livro, Perfil } from './dados/tipos';
 
 interface Props {
   termo: string;
-  buscar: (termo: string) => Promise<void>;
+  /* Aceita parâmetro opcional 'imediato' para ignorar debounce ao selecionar histórico ou limpar */
+  buscar: (termo: string, imediato?: boolean) => Promise<void> | void;
   confirmarBusca: () => Promise<void>;
   carregando: boolean;
   erro: string;
@@ -27,11 +28,11 @@ export function Pesquisa(props: Props) {
     <form className="search-field" role="search" onSubmit={(event) => { event.preventDefault(); void props.confirmarBusca(); }}>
       <Search size={22} aria-hidden="true" />
       <input id="search-query" type="search" enterKeyHint="search" aria-label="Pesquisar livros ou pessoas" placeholder="Pesquisar livros ou pessoas" value={termo} onChange={(event) => void buscar(event.target.value)} autoComplete="off" />
-      {termo && <button type="button" aria-label="Limpar pesquisa" onClick={() => { void buscar(''); document.getElementById('search-query')?.focus(); }}><X size={20} /></button>}
+      {termo && <button type="button" aria-label="Limpar pesquisa" onClick={() => { void buscar('', true); document.getElementById('search-query')?.focus(); }}><X size={20} /></button>}
     </form>
     {!termo.trim() ? <section className="search-history">
       <div className="section-header"><h2 className="section-title">Buscas recentes</h2>{recentes.length > 0 && <button className="shelf-toggle" onClick={() => void props.limparHistorico()}>Limpar histórico</button>}</div>
-      {recentes.length ? <div className="search-history-list">{recentes.map((item) => <button key={item.id} onClick={() => void buscar(item.termo)}><Clock size={18} aria-hidden="true" /><span>{item.termo}</span></button>)}</div> : <p className="search-feedback">Nenhuma busca recente.</p>}
+      {recentes.length ? <div className="search-history-list">{recentes.map((item) => <button key={item.id} onClick={() => void buscar(item.termo, true)}><Clock size={18} aria-hidden="true" /><span>{item.termo}</span></button>)}</div> : <p className="search-feedback">Nenhuma busca recente.</p>}
     </section> : erro ? <p className="search-feedback" role="alert">{erro}</p> : carregando ? <p className="search-feedback" role="status">Pesquisando…</p> : <div className="search-results">
       <section className="search-authors" aria-labelledby="search-authors-title">
         <h2 id="search-authors-title" className="section-title">Autores</h2>
