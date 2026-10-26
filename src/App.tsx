@@ -200,9 +200,17 @@ export function App() {
   const [pesquisando, setPesquisando] = useState(false);
   const [erroPesquisa, setErroPesquisa] = useState('');
   const pesquisaAtual = useRef(0);
+  const timerBuscaRef = useRef<number | null>(null);
   const [resultadoLivros, setResultadoLivros] = useState<Livro[]>([]);
   const [resultadoPerfis, setResultadoPerfis] = useState<Perfil[]>([]);
   const [buscasRecentes, setBuscasRecentes] = useState<BuscaRecente[]>([]);
+
+  // Limpa o timer de debounce se o componente for desmontado
+  useEffect(() => {
+    return () => {
+      if (timerBuscaRef.current) window.clearTimeout(timerBuscaRef.current);
+    };
+  }, []);
 
   // Estados de Admin
   const [contasPendentes, setContasPendentes] = useState<Perfil[]>([]);
@@ -549,23 +557,40 @@ export function App() {
     finally { setSalvandoParaLer(null); }
   };
 
-  const pesquisar = async (termo: string) => {
-    const pedido = ++pesquisaAtual.current;
+  // Pesquisa com debounce de 300ms para reduzir requisições à API durante a digitação
+  const pesquisar = (termo: string, imediato = false) => {
+    if (timerBuscaRef.current) {
+      window.clearTimeout(timerBuscaRef.current);
+      timerBuscaRef.current = null;
+    }
+
     setTermoBusca(termo);
     setErroPesquisa('');
+
     if (!termo.trim()) {
+      pesquisaAtual.current++;
       setResultadoLivros([]); setResultadoPerfis([]); setPesquisando(false);
       return;
     }
-    setPesquisando(true);
-    try {
-      const resultado = await buscarLivrosEPerfis(termo.trim());
-      if (pedido !== pesquisaAtual.current) return;
-      setResultadoLivros(resultado.livros); setResultadoPerfis(resultado.perfis);
-    } catch {
-      if (pedido === pesquisaAtual.current) setErroPesquisa('Não foi possível pesquisar. Tente novamente.');
-    } finally {
-      if (pedido === pesquisaAtual.current) setPesquisando(false);
+
+    const executar = async () => {
+      const pedido = ++pesquisaAtual.current;
+      setPesquisando(true);
+      try {
+        const resultado = await buscarLivrosEPerfis(termo.trim());
+        if (pedido !== pesquisaAtual.current) return;
+        setResultadoLivros(resultado.livros); setResultadoPerfis(resultado.perfis);
+      } catch {
+        if (pedido === pesquisaAtual.current) setErroPesquisa('Não foi possível pesquisar. Tente novamente.');
+      } finally {
+        if (pedido === pesquisaAtual.current) setPesquisando(false);
+      }
+    };
+
+    if (imediato) {
+      void executar();
+    } else {
+      timerBuscaRef.current = window.setTimeout(executar, 300);
     }
   };
 
