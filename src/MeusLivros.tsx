@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type PointerEvent } from 'react';
+import { memo, useLayoutEffect, useRef, useState, type PointerEvent } from 'react';
 import { BookOpen, ChevronLeft, ChevronRight, Pencil, Plus } from 'lucide-react';
 import type { Livro } from './dados/tipos';
 
@@ -9,11 +9,13 @@ interface Props {
   editarLivro: (livro: Livro) => void;
 }
 
-function Capa({ livro }: { livro: Livro }) {
+// ⚡ Bolt Optimization: Envolvendo Capa com React.memo para reutilizar renderizações de capas.
+const Capa = memo(function Capa({ livro }: { livro: Livro }) {
   return livro.capa_url ? <img src={livro.capa_url} alt="" draggable={false} /> : <span className="typographic-cover"><BookOpen size={24} aria-hidden="true" /><span>{livro.titulo}</span></span>;
-}
+});
 
-export function MeusLivros({ rascunhos, publicados, novoLivro, editarLivro }: Props) {
+// ⚡ Bolt Optimization: Envolvendo MeusLivros com React.memo para evitar re-renderizações do carrossel/trilho.
+export const MeusLivros = memo(function MeusLivros({ rascunhos, publicados, novoLivro, editarLivro }: Props) {
   const trilho = useRef<HTMLDivElement>(null);
   const arraste = useRef({ inicio: 0, topo: 0, scroll: 0, ativo: false, moveu: false });
   const [posicao, setPosicao] = useState(0);
@@ -92,4 +94,4 @@ export function MeusLivros({ rascunhos, publicados, novoLivro, editarLivro }: Pr
     </section>
     <section className="published-section"><div className="section-header"><h2 className="section-title">Publicados</h2></div>{publicados.length ? <div className="library-grid">{publicados.map(cartao)}</div> : <p className="shelf-empty">Você ainda não publicou nenhum livro.</p>}</section>
   </div>;
-}
+});
