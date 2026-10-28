@@ -31,10 +31,28 @@ export function useAnimacaoRolagem(ref: RefObject<HTMLElement | null>, pagina: s
       });
     };
     registrar();
-    const mutacoes = new MutationObserver(registrar);
+    // Otimização de desempenho: Agrupa mutações do DOM usando requestAnimationFrame
+    // para evitar chamadas síncronas repetidas ao querySelectorAll e getBoundingClientRect.
+    let frameId: number | null = null;
+    const agendarRegistrar = () => {
+      if (frameId !== null) return;
+      if (typeof requestAnimationFrame === 'function') {
+        frameId = requestAnimationFrame(() => {
+          frameId = null;
+          registrar();
+        });
+      } else {
+        registrar();
+      }
+    };
+
+    const mutacoes = new MutationObserver(agendarRegistrar);
     mutacoes.observe(raiz, { childList: true, subtree: true });
     preferencia.addEventListener('change', atualizarPreferencia);
     return () => {
+      if (frameId !== null && typeof cancelAnimationFrame === 'function') {
+        cancelAnimationFrame(frameId);
+      }
       observer.disconnect();
       mutacoes.disconnect();
       preferencia.removeEventListener('change', atualizarPreferencia);
