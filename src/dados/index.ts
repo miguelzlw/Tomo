@@ -27,10 +27,20 @@ export { isSupabaseConfigured, erroConfiguracaoSupabase };
 // ------------------------------------------------------------------------------
 const STORAGE_PREFIX = 'tomo_';
 
+// Otimização de Performance (Bolt): Cache em memória de desserialização JSON.parse.
+// Evita re-executar JSON.parse repetidamente quando a string bruta no localStorage não mudou.
+const cacheLocalStorage = new Map<string, { raw: string | null; valor: unknown }>();
+
 function carregarLocal<T>(chave: string, padrao: T): T {
   try {
-    const item = localStorage.getItem(STORAGE_PREFIX + chave);
-    return item ? JSON.parse(item) : padrao;
+    const raw = localStorage.getItem(STORAGE_PREFIX + chave);
+    const cached = cacheLocalStorage.get(chave);
+    if (cached && cached.raw === raw) {
+      return cached.valor as T;
+    }
+    const valor = raw ? JSON.parse(raw) : padrao;
+    cacheLocalStorage.set(chave, { raw, valor });
+    return valor;
   } catch {
     return padrao;
   }
@@ -38,7 +48,9 @@ function carregarLocal<T>(chave: string, padrao: T): T {
 
 function salvarLocal<T>(chave: string, valor: T): void {
   try {
-    localStorage.setItem(STORAGE_PREFIX + chave, JSON.stringify(valor));
+    const raw = JSON.stringify(valor);
+    cacheLocalStorage.set(chave, { raw, valor });
+    localStorage.setItem(STORAGE_PREFIX + chave, raw);
   } catch (err) {
     console.error(`Erro ao salvar no storage local (${chave}):`, err);
   }
