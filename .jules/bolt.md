@@ -1,0 +1,3 @@
+## 2026-10-31 - Evitar cópias intermediárias de strings longas na paginação
+**Learning:** Reatribuir repetidamente uma substring (`restante = restante.slice(corte)`) ao paginar textos extensos (como livros completos colados no editor ou gerados por IA) cria novas strings intermediárias na heap a cada página, gerando pressão no Garbage Collector e tempo de CPU desnecessário.
+**Action:** Utilizar ponteiros de índice (`inicio` e `fim`) diretamente sobre o texto original, fatiando apenas os trechos definitivos das páginas (`texto.slice(inicio, fim)`), reduzindo alocações transitórias na memória heap.
