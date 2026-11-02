@@ -200,6 +200,7 @@ export function App() {
   const [pesquisando, setPesquisando] = useState(false);
   const [erroPesquisa, setErroPesquisa] = useState('');
   const pesquisaAtual = useRef(0);
+  const timerDebounceBusca = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [resultadoLivros, setResultadoLivros] = useState<Livro[]>([]);
   const [resultadoPerfis, setResultadoPerfis] = useState<Perfil[]>([]);
   const [buscasRecentes, setBuscasRecentes] = useState<BuscaRecente[]>([]);
@@ -549,9 +550,10 @@ export function App() {
     finally { setSalvandoParaLer(null); }
   };
 
-  const pesquisar = async (termo: string) => {
+  // ⚡ Bolt Otimização: Debounce de 250ms na busca para evitar requisições desnecessárias a cada tecla digitada.
+  // Reduz em ~80% as chamadas de rede durante a digitação rápida de termos médios (ex: 5 caracteres = 1 requisição em vez de 5).
+  const executarBusca = async (termo: string) => {
     const pedido = ++pesquisaAtual.current;
-    setTermoBusca(termo);
     setErroPesquisa('');
     if (!termo.trim()) {
       setResultadoLivros([]); setResultadoPerfis([]); setPesquisando(false);
@@ -567,6 +569,29 @@ export function App() {
     } finally {
       if (pedido === pesquisaAtual.current) setPesquisando(false);
     }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (timerDebounceBusca.current) {
+        clearTimeout(timerDebounceBusca.current);
+      }
+    };
+  }, []);
+
+  const pesquisar = (termo: string, imediato = false) => {
+    setTermoBusca(termo);
+    if (timerDebounceBusca.current) {
+      clearTimeout(timerDebounceBusca.current);
+      timerDebounceBusca.current = null;
+    }
+    if (!termo.trim() || imediato) {
+      void executarBusca(termo);
+      return;
+    }
+    timerDebounceBusca.current = setTimeout(() => {
+      void executarBusca(termo);
+    }, 250);
   };
 
   const botaoSalvarLivro = (livro: Livro, compacto = false) => {
@@ -1178,9 +1203,10 @@ export function App() {
 
         {/* 4. ABA PESQUISA (US-15, US-17) */}
         {visaoAtiva === 'principal' && abaAtual === 'pesquisa' && (
-          <Pesquisa termo={termoBusca} buscar={pesquisar} confirmarBusca={async () => {
+          <Pesquisa termo={termoBusca} buscar={async (termo) => { pesquisar(termo); }} confirmarBusca={async () => {
             const termo = termoBusca.trim();
             if (!termo) return;
+            pesquisar(termo, true);
             try {
               await adicionarBuscaRecente(termo, 'livro');
               setBuscasRecentes(await listarBuscasRecentes());
