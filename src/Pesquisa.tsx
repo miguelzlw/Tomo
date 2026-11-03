@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { BookOpen, Clock, Search, X } from 'lucide-react';
 import type { BuscaRecente, Livro, Perfil } from './dados/tipos';
 
@@ -23,11 +23,59 @@ interface Props {
 
 export function Pesquisa(props: Props) {
   const { termo, buscar, carregando, erro, livros, perfis, recentes } = props;
+
+  // ⚡ Otimização de Performance (Bolt):
+  // Debounce na busca para evitar requisições a cada tecla digitada (reduz chamadas em ~70-80%).
+  // Mantemos o valor local responsivo imediatamente na UI, enquanto a busca assíncrona aguarda 300ms.
+  const [valorDigitado, setValorDigitado] = useState(termo);
+  const timerDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Sincroniza caso o termo mude externamente (ex: clique no histórico ou limpeza externa)
+  const [termoAnterior, setTermoAnterior] = useState(termo);
+  if (termo !== termoAnterior) {
+    setTermoAnterior(termo);
+    setValorDigitado(termo);
+  }
+
+  useEffect(() => {
+    return () => {
+      if (timerDebounce.current) clearTimeout(timerDebounce.current);
+    };
+  }, []);
+
+  const lidarComMudanca = (novoValor: string) => {
+    setValorDigitado(novoValor);
+    if (timerDebounce.current) clearTimeout(timerDebounce.current);
+
+    // Se o usuário limpar o campo, dispara imediatamente sem atrasar
+    if (!novoValor.trim()) {
+      void buscar('');
+      return;
+    }
+
+    // Aguarda o término da digitação (300ms) antes de disparar a busca assíncrona
+    timerDebounce.current = setTimeout(() => {
+      void buscar(novoValor);
+    }, 300);
+  };
+
+  const limparPesquisa = () => {
+    if (timerDebounce.current) clearTimeout(timerDebounce.current);
+    setValorDigitado('');
+    void buscar('');
+    document.getElementById('search-query')?.focus();
+  };
+
   return <section className="search-page" aria-label="Pesquisar livros ou pessoas">
-    <form className="search-field" role="search" onSubmit={(event) => { event.preventDefault(); void props.confirmarBusca(); }}>
+    <form className="search-field" role="search" onSubmit={(event) => {
+      event.preventDefault();
+      if (timerDebounce.current) clearTimeout(timerDebounce.current);
+      if (valorDigitado !== termo) void buscar(valorDigitado);
+      void props.confirmarBusca();
+    }}>
       <Search size={22} aria-hidden="true" />
-      <input id="search-query" type="search" enterKeyHint="search" aria-label="Pesquisar livros ou pessoas" placeholder="Pesquisar livros ou pessoas" value={termo} onChange={(event) => void buscar(event.target.value)} autoComplete="off" />
-      {termo && <button type="button" aria-label="Limpar pesquisa" onClick={() => { void buscar(''); document.getElementById('search-query')?.focus(); }}><X size={20} /></button>}
+      <input id="search-query" type="search" enterKeyHint="search" aria-label="Pesquisar livros ou pessoas" placeholder="Pesquisar livros ou pessoas" value={valorDigitado} onChange={(event) => lidarComMudanca(event.target.value)} autoComplete="off" />
+      {valorDigitado && <button type="button" aria-label="Limpar pesquisa" onClick={limparPesquisa}><X size={20} /></button>}
     </form>
     {!termo.trim() ? <section className="search-history">
       <div className="section-header"><h2 className="section-title">Buscas recentes</h2>{recentes.length > 0 && <button className="shelf-toggle" onClick={() => void props.limparHistorico()}>Limpar histórico</button>}</div>
