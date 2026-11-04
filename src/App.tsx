@@ -200,9 +200,19 @@ export function App() {
   const [pesquisando, setPesquisando] = useState(false);
   const [erroPesquisa, setErroPesquisa] = useState('');
   const pesquisaAtual = useRef(0);
+  const pesquisaDebounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [resultadoLivros, setResultadoLivros] = useState<Livro[]>([]);
   const [resultadoPerfis, setResultadoPerfis] = useState<Perfil[]>([]);
   const [buscasRecentes, setBuscasRecentes] = useState<BuscaRecente[]>([]);
+
+  // Limpa timer de debounce pendente ao desmontar o componente
+  useEffect(() => {
+    return () => {
+      if (pesquisaDebounceTimer.current !== null) {
+        clearTimeout(pesquisaDebounceTimer.current);
+      }
+    };
+  }, []);
 
   // Estados de Admin
   const [contasPendentes, setContasPendentes] = useState<Perfil[]>([]);
@@ -549,24 +559,43 @@ export function App() {
     finally { setSalvandoParaLer(null); }
   };
 
+  // Otimização de Performance (⚡ Bolt):
+  // Debounce na pesquisa ao digitar para evitar requisições repetidas a cada tecla digitada.
+  // Atualiza termoBusca instantaneamente (feedback visual imediato), mas atrasa a busca de rede em 300ms.
+  // Limpa buscas vazias imediatamente para liberar a memória e renderizar o histórico sem atraso.
   const pesquisar = async (termo: string) => {
-    const pedido = ++pesquisaAtual.current;
     setTermoBusca(termo);
     setErroPesquisa('');
-    if (!termo.trim()) {
-      setResultadoLivros([]); setResultadoPerfis([]); setPesquisando(false);
+
+    if (pesquisaDebounceTimer.current !== null) {
+      clearTimeout(pesquisaDebounceTimer.current);
+      pesquisaDebounceTimer.current = null;
+    }
+
+    const termoNormalizado = termo.trim();
+    if (!termoNormalizado) {
+      // Invalida requisições pendentes e limpa resultados imediatamente
+      pesquisaAtual.current++;
+      setResultadoLivros([]);
+      setResultadoPerfis([]);
+      setPesquisando(false);
       return;
     }
+
     setPesquisando(true);
-    try {
-      const resultado = await buscarLivrosEPerfis(termo.trim());
-      if (pedido !== pesquisaAtual.current) return;
-      setResultadoLivros(resultado.livros); setResultadoPerfis(resultado.perfis);
-    } catch {
-      if (pedido === pesquisaAtual.current) setErroPesquisa('Não foi possível pesquisar. Tente novamente.');
-    } finally {
-      if (pedido === pesquisaAtual.current) setPesquisando(false);
-    }
+    pesquisaDebounceTimer.current = setTimeout(async () => {
+      const pedido = ++pesquisaAtual.current;
+      try {
+        const resultado = await buscarLivrosEPerfis(termoNormalizado);
+        if (pedido !== pesquisaAtual.current) return;
+        setResultadoLivros(resultado.livros);
+        setResultadoPerfis(resultado.perfis);
+      } catch {
+        if (pedido === pesquisaAtual.current) setErroPesquisa('Não foi possível pesquisar. Tente novamente.');
+      } finally {
+        if (pedido === pesquisaAtual.current) setPesquisando(false);
+      }
+    }, 300);
   };
 
   const botaoSalvarLivro = (livro: Livro, compacto = false) => {
