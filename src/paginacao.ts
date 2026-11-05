@@ -1,20 +1,39 @@
-/** Preserva o conteúdo colado, dividindo apenas em espaços ou quebras de linha. */
+/**
+ * Preserva o conteúdo colado, dividindo apenas em espaços ou quebras de linha.
+ * ⚡ Otimização Bolt: Usa cursor de deslocamento (offset) sobre a string original
+ * em vez de criar repetidamente substrings do restante com slice(corte).
+ * Isso reduz a complexidade de fatiamento de O(n²) para O(n) e economiza
+ * alocações de memória e pausas de Garbage Collection em textos longos.
+ */
 export function dividirTextoEmPaginas(texto: string, limite = 1500): string[] {
   if (!Number.isInteger(limite) || limite < 1) throw new Error('Limite inválido.');
   const paginas: string[] = [];
-  let restante = texto;
-  while (restante.length > limite) {
-    let corte = limite;
-    if (!/\s/.test(restante[limite]) && !/\s/.test(restante[limite - 1])) {
-      corte = 0;
-      for (let i = limite - 1; i >= 0; i--) {
-        if (/\s/.test(restante[i])) { corte = i + 1; break; }
+  const tamanho = texto.length;
+  let offset = 0;
+
+  while (tamanho - offset > limite) {
+    let corte = offset + limite;
+    // Se a quebra cai no meio de uma palavra, busca retroativamente o último espaço
+    if (!/\s/.test(texto[corte]) && !/\s/.test(texto[corte - 1])) {
+      let recuo = 0;
+      for (let i = corte - 1; i >= offset; i--) {
+        if (/\s/.test(texto[i])) {
+          recuo = i + 1;
+          break;
+        }
       }
-      if (!corte) throw new Error(`Uma palavra ultrapassa ${limite} caracteres. Separe essa palavra antes de colar.`);
+      if (!recuo) {
+        throw new Error(`Uma palavra ultrapassa ${limite} caracteres. Separe essa palavra antes de colar.`);
+      }
+      corte = recuo;
     }
-    paginas.push(restante.slice(0, corte));
-    restante = restante.slice(corte);
+    paginas.push(texto.slice(offset, corte));
+    offset = corte;
   }
-  if (restante || paginas.length === 0) paginas.push(restante);
+
+  if (offset < tamanho || paginas.length === 0) {
+    paginas.push(texto.slice(offset));
+  }
+
   return paginas;
 }
