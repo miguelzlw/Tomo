@@ -36,7 +36,7 @@ Deno.serve(async req => {
     if (limite) return responder({ erro: 'Não foi possível reservar a geração. O limite é de 20 tentativas por dia; confira também a configuração do serviço.' }, 429);
     const chamada = requisicaoIA(pedido.provedor, modelo, chave, pedido.pedido);
     const resultado = await fetch(chamada.url, { method: 'POST', headers: chamada.headers, body: JSON.stringify(chamada.body), signal: AbortSignal.timeout(55000) });
-    if (!resultado.ok) return responder({ erro: resultado.status === 429 ? 'A IA está com limite de uso atingido. Tente mais tarde.' : 'A IA não conseguiu gerar a história. Verifique a chave, o modelo e os créditos da API.' }, 502);
+    if (!resultado.ok) return responder({ erro: resultado.status === 429 ? 'A cota compartilhada da IA foi atingida. Tente novamente mais tarde.' : 'A IA não conseguiu gerar a história. Tente novamente mais tarde ou avise o administrador.' }, resultado.status === 429 ? 429 : 502);
     return responder({ texto: extrairTextoIA(pedido.provedor, await resultado.json()) });
   } catch {
     return responder({ erro: 'Não foi possível concluir a história. Tente um pedido mais curto ou tente novamente mais tarde.' }, 503);
