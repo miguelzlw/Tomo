@@ -574,12 +574,13 @@ export async function moverParaLixeira(livroId: string): Promise<boolean> {
   if (!usuario) return false;
 
   if (isSupabaseConfigured && supabase) {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('livros')
       .update({ lixeira: true })
       .eq('id', livroId)
-      .eq('autor_id', usuario.id);
-    return !error;
+      .eq('autor_id', usuario.id).select('id');
+    if (error) throw error;
+    return data?.length === 1;
   }
 
   const livros = carregarLocal<Livro[]>('livros', []);
@@ -624,12 +625,13 @@ export async function restaurarDaLixeira(livroId: string): Promise<boolean> {
   if (!usuario) return false;
 
   if (isSupabaseConfigured && supabase) {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('livros')
       .update({ lixeira: false })
       .eq('id', livroId)
-      .eq('autor_id', usuario.id);
-    return !error;
+      .eq('autor_id', usuario.id).select('id');
+    if (error) throw error;
+    return data?.length === 1;
   }
 
   const livros = carregarLocal<Livro[]>('livros', []);
@@ -670,17 +672,55 @@ export async function excluirDefinitivamente(livroId: string): Promise<boolean> 
   return true;
 }
 
+export async function excluirRascunhosDefinitivamente(ids: string[]): Promise<boolean> {
+  const usuario = await obterPerfilAtual();
+  const selecionados = [...new Set(ids)];
+  if (!usuario || !selecionados.length) return false;
+  if (isSupabaseConfigured && supabase) {
+    const { data, error } = await supabase.from('livros').delete().in('id', selecionados).eq('autor_id', usuario.id).eq('situacao', 'rascunho').select('id');
+    if (error) throw error;
+    return data?.length === selecionados.length;
+  }
+  const livros = carregarLocal<Livro[]>('livros', []);
+  if (!selecionados.every((id) => livros.some((livro) => livro.id === id && livro.autor_id === usuario.id && livro.situacao === 'rascunho'))) return false;
+  salvarLocal('livros', livros.filter((livro) => !selecionados.includes(livro.id)));
+  salvarLocal('paginas', carregarLocal<Pagina[]>('paginas', []).filter((pagina) => !selecionados.includes(pagina.livro_id)));
+  return true;
+}
+
+export async function excluirDaLixeiraDefinitivamente(ids: string[]): Promise<boolean> {
+  const usuario = await obterPerfilAtual();
+  const selecionados = [...new Set(ids)];
+  if (!usuario || !selecionados.length) return false;
+  if (isSupabaseConfigured && supabase) {
+    const consulta = await supabase.from('livros').select('id').in('id', selecionados).eq('autor_id', usuario.id).eq('situacao', 'lancado').eq('lixeira', true);
+    if (consulta.error) throw consulta.error;
+    if (consulta.data?.length !== selecionados.length) return false;
+    const { data, error } = await supabase.from('livros').delete().in('id', selecionados).eq('autor_id', usuario.id).eq('situacao', 'lancado').eq('lixeira', true).select('id');
+    if (error) throw error;
+    return data?.length === selecionados.length;
+  }
+  const livros = carregarLocal<Livro[]>('livros', []);
+  if (!selecionados.every((id) => livros.some((livro) => livro.id === id && livro.autor_id === usuario.id && livro.situacao === 'lancado' && livro.lixeira))) return false;
+  salvarLocal('livros', livros.filter((livro) => !selecionados.includes(livro.id)));
+  salvarLocal('paginas', carregarLocal<Pagina[]>('paginas', []).filter((pagina) => !selecionados.includes(pagina.livro_id)));
+  salvarLocal('salvos', carregarLocal<LivroSalvo[]>('salvos', []).filter((salvo) => !selecionados.includes(salvo.livro_id)));
+  salvarLocal('progresso_leitura', carregarLocal<ProgressoLeitura[]>('progresso_leitura', []).filter((progresso) => !selecionados.includes(progresso.livro_id)));
+  return true;
+}
+
 export async function listarLixeira(): Promise<Livro[]> {
   const usuario = await obterPerfilAtual();
   if (!usuario) return [];
 
   if (isSupabaseConfigured && supabase) {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('livros')
       .select('*, autor:perfis!livros_autor_id_fkey(*)')
       .eq('autor_id', usuario.id)
       .eq('lixeira', true)
       .order('atualizado_em', { ascending: false });
+    if (error) throw error;
     return (data as Livro[]) || [];
   }
 

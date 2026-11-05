@@ -2,14 +2,14 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { useAnimacaoRolagem } from './useAnimacaoRolagem';
 
 const { efeitos } = vi.hoisted(() => ({ efeitos: [] as (() => void)[] }));
-vi.mock('react', () => ({ useEffect: (executar: () => (() => void)) => efeitos.push(executar()) }));
+vi.mock('react', () => ({ useEffect: (executar: () => void | (() => void)) => { const limpar = executar(); if (limpar) efeitos.push(limpar); } }));
 
 afterEach(() => {
   efeitos.splice(0).forEach((limpar) => limpar());
   vi.unstubAllGlobals();
 });
 
-function preparar(reduzido = false) {
+function preparar(reduzido = false, habilitado = true) {
   const atributos = new Map<string, string>();
   const bloco = {
     parentElement: { closest: () => null },
@@ -30,7 +30,7 @@ function preparar(reduzido = false) {
   const raiz = { querySelectorAll: () => [bloco], contains: () => true };
   // React está simulado acima para executar o efeito e conferir sua limpeza sem montar uma tela.
   // eslint-disable-next-line react-hooks/rules-of-hooks
-  useAnimacaoRolagem({ current: raiz as unknown as HTMLElement }, 'dashboard');
+  useAnimacaoRolagem({ current: raiz as unknown as HTMLElement }, 'dashboard', habilitado);
   return {
     atributos, desconectar,
     mover: (top: number, isIntersecting: boolean) => atualizar([{ target: bloco, isIntersecting, boundingClientRect: { top }, rootBounds: { bottom: 752 } }]),
@@ -63,4 +63,8 @@ it('starts with visible content when reduced motion is preferred', () => {
   const { atributos, mover } = preparar(true);
   mover(-300, false);
   expect(atributos.get('data-scroll-visible')).toBe('true');
+});
+
+it('does not start the page reveals while the login book is covering them', () => {
+  expect(preparar(false, false).atributos.has('data-scroll-visible')).toBe(false);
 });

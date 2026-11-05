@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { CircleCheck, Link2, ArrowUpRight, Copy } from 'lucide-react';
-import { consultarConexoesIA, criarTokenMCP, revogarTokenMCP } from './dados';
-import type { DisponibilidadeIA } from './dados';
+import { consultarConexoesIA, criarTokenMCP, revogarTokenMCP, listarConexoesMCP, revogarConexaoMCP } from './dados';
+import type { DisponibilidadeIA, ConexaoMCP } from './dados';
 
 export function ConexoesIA() {
   const [status, setStatus] = useState<DisponibilidadeIA | null>(null);
@@ -10,6 +10,16 @@ export function ConexoesIA() {
   const [aviso, setAviso] = useState('');
   const [ocupado, setOcupado] = useState(false);
   const [escolha, setEscolha] = useState<'claude' | 'openai' | null>(null);
+  const [conexoes, setConexoes] = useState<ConexaoMCP[]>([]);
+  const [carregandoConexoes, setCarregandoConexoes] = useState(true);
+  const [erroConexoes, setErroConexoes] = useState('');
+  const data = (valor: string) => new Date(valor).toLocaleDateString('pt-BR');
+  async function recarregarConexoes() {
+    setCarregandoConexoes(true); setErroConexoes('');
+    try { setConexoes(await listarConexoesMCP()); }
+    catch (e) { setErroConexoes(e instanceof Error ? e.message : 'Não foi possível listar as conexões.'); }
+    finally { setCarregandoConexoes(false); }
+  }
   const endereco = status?.mcpUrl || `${window.location.origin}/api/mcp`;
   const nomeIA = escolha === 'claude' ? 'Claude' : 'ChatGPT';
   const fichaPublicada = escolha === 'claude' ? import.meta.env.VITE_CLAUDE_CONNECTOR_URL : import.meta.env.VITE_CHATGPT_PLUGIN_URL;
@@ -18,14 +28,25 @@ export function ConexoesIA() {
     try { await navigator.clipboard.writeText(endereco); setAviso('Endereço copiado! Cole no campo de URL do conector.'); }
     catch { setAviso('Não foi possível copiar automaticamente. Selecione e copie o endereço abaixo.'); }
   }
-  useEffect(() => { let ativo = true; consultarConexoesIA().then(s => { if (ativo) setStatus(s); }).catch(e => { if (ativo) setErro(e.message); }); return () => { ativo = false; }; }, []);
+  useEffect(() => {
+    let ativo = true;
+    consultarConexoesIA().then(s => { if (ativo) setStatus(s); }).catch(e => { if (ativo) setErro(e.message); });
+    listarConexoesMCP().then(c => { if (ativo) setConexoes(c); }).catch(e => { if (ativo) setErroConexoes(e instanceof Error ? e.message : 'Não foi possível listar as conexões.'); }).finally(() => { if (ativo) setCarregandoConexoes(false); });
+    return () => { ativo = false; };
+  }, []);
   async function executar(revogar: boolean) {
     setOcupado(true); setErro(''); setAviso('');
     try {
-      if (revogar) { await revogarTokenMCP(); setToken(''); setAviso('Conexão revogada. A IA não poderá mais salvar histórias no Tomo.'); }
+      if (revogar) { await revogarTokenMCP(); setToken(''); setAviso('Todas as conexões foram revogadas. Reconecte os aplicativos para voltar a salvar histórias no Tomo.'); }
       else { setToken(await criarTokenMCP()); setAviso('Acesso criado! Adicione o token no seu aplicativo de IA para começar.'); }
-      setStatus(await consultarConexoesIA());
+      setStatus(await consultarConexoesIA()); await recarregarConexoes();
     } catch (e) { setErro(e instanceof Error ? e.message : 'Não foi possível atualizar a conexão.'); }
+    finally { setOcupado(false); }
+  }
+  async function revogarUma(c: ConexaoMCP) {
+    setOcupado(true); setErro(''); setAviso('');
+    try { await revogarConexaoMCP(c.id); setAviso(`Conexão "${c.nome}" revogada. As outras conexões continuam funcionando.`); setStatus(await consultarConexoesIA()); await recarregarConexoes(); }
+    catch (e) { setErro(e instanceof Error ? e.message : 'Não foi possível revogar a conexão.'); }
     finally { setOcupado(false); }
   }
   return <section className="ia-panel" aria-labelledby="ia-conexoes-titulo">
@@ -47,11 +68,12 @@ export function ConexoesIA() {
     <details><summary>Opções avançadas e gerenciamento</summary>
       <p>Este acesso permite somente criar rascunhos privados, sem ler seus livros ou publicar.</p>
       {status && !status.oauthDisponivel && <p role="status">A conexão OAuth ainda precisa do endereço público do Tomo configurado pelo administrador.</p>}
-      <details><summary>Configuração manual e gerenciamento do acesso</summary><p>Para clientes com cabeçalhos configuráveis, gere um token e envie-o em Authorization: Bearer. Ele expira em 30 dias e substitui a conexão anterior.</p>
-      <div className="ia-actions"><button className="btn-secondary" disabled={!status || ocupado} onClick={() => void executar(false)}>Gerar novo acesso MCP</button><button className="btn-secondary" disabled={!status || ocupado} onClick={() => void executar(true)}>Revogar acesso MCP</button></div>
+      <h3>Conexões ativas</h3>
+      {carregandoConexoes ? <p role="status">Consultando conexões…</p> : erroConexoes ? <div role="alert"><p>{erroConexoes}</p><button className="btn-secondary" disabled={ocupado} onClick={() => void recarregarConexoes()}>Tentar novamente</button></div> : conexoes.length ? <ul style={{ listStyle: 'none', padding: 0, display: 'grid', gap: '.5rem' }}>{conexoes.map(c => <li key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}><span><strong>{c.nome}</strong><br /><small>{c.origem === 'manual' ? 'Token manual' : c.origem === 'migrada' ? 'Conexão anterior' : 'Conectada por OAuth'} · criada em {data(c.criado_em)} · {c.ultimo_uso_em ? `último uso em ${data(c.ultimo_uso_em)}` : 'ainda não usada'} · válida até {data(c.expira_em)}</small></span><button className="btn-secondary" disabled={ocupado} aria-label={`Revogar conexão ${c.nome}`} onClick={() => void revogarUma(c)}>Revogar</button></li>)}</ul> : <p className="ia-note">Nenhuma conexão ativa.</p>}
+      <details><summary>Configuração manual e gerenciamento do acesso</summary><p>Para clientes com cabeçalhos configuráveis, gere um token e envie-o em Authorization: Bearer. Ele expira em 30 dias e cria uma nova conexão; as outras continuam ativas.</p>
+      <div className="ia-actions"><button className="btn-secondary" disabled={!status || ocupado} onClick={() => void executar(false)}>Gerar novo acesso MCP</button><button className="btn-secondary" disabled={!status || ocupado} onClick={() => void executar(true)}>Revogar todas as conexões</button></div>
       {token && <label className="form-label">Token: copie agora e guarde em segurança. Ele não será mostrado novamente.<textarea className="form-input" readOnly value={token} onFocus={e => e.target.select()} /></label>}</details>
     </details>
-    <p className="ia-note"><a href="/suporte/" target="_blank" rel="noopener noreferrer">Suporte</a> · <a href="/privacidade/" target="_blank" rel="noopener noreferrer">Privacidade</a> · <a href="/termos/" target="_blank" rel="noopener noreferrer">Termos de uso</a></p>
     {erro && <p role="alert">{erro}</p>}{aviso && <p role="status">{aviso}</p>}
   </section>;
 }

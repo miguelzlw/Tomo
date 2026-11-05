@@ -34,6 +34,23 @@ export async function revogarTokenMCP(): Promise<void> {
   if (error) throw new Error('Não foi possível revogar o acesso. Tente novamente.');
 }
 
+export interface ConexaoMCP { id: string; nome: string; origem: 'oauth' | 'manual' | 'migrada'; criado_em: string; expira_em: string; ultimo_uso_em: string | null }
+
+export async function listarConexoesMCP(): Promise<ConexaoMCP[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase.rpc('listar_conexoes_mcp');
+  if (error) throw new Error('Não foi possível listar as conexões. Verifique se a migração de múltiplas conexões foi aplicada.');
+  return (data ?? []) as ConexaoMCP[];
+}
+
+export async function revogarConexaoMCP(id: string): Promise<boolean> {
+  if (!supabase) throw new Error('Configure o Supabase para gerenciar MCP.');
+  const { data, error } = await supabase.rpc('revogar_conexao_mcp', { conexao_id: id });
+  if (error) throw new Error('Não foi possível revogar a conexão. Tente novamente.');
+  if (data !== true) throw new Error('A conexão não foi encontrada na sua conta. Atualize a lista e tente novamente.');
+  return true;
+}
+
 export async function consentimentoMCP(request: string, acao: 'detalhes' | 'aprovar' | 'negar'): Promise<{ nome?: string; destino?: string; redirect?: string }> {
   if (!supabase) throw new Error('Configure o Supabase para autorizar a conexão.');
   const { data, error } = await supabase.functions.invoke('mcp-oauth', { body: { request, acao } });
