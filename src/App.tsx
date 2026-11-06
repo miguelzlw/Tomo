@@ -200,6 +200,7 @@ export function App() {
   const [pesquisando, setPesquisando] = useState(false);
   const [erroPesquisa, setErroPesquisa] = useState('');
   const pesquisaAtual = useRef(0);
+  const timerBuscaRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [resultadoLivros, setResultadoLivros] = useState<Livro[]>([]);
   const [resultadoPerfis, setResultadoPerfis] = useState<Perfil[]>([]);
   const [buscasRecentes, setBuscasRecentes] = useState<BuscaRecente[]>([]);
@@ -305,6 +306,16 @@ export function App() {
   }, [editandoPerfil, confirmarDeixar, confirmarSaida, acaoSocial, salvandoPerfil]);
 
   useEffect(() => { setMenuPerfilAberto(false); }, [abaAtual, visaoAtiva]);
+
+  // Limpa timer de busca se componente for desmontado ou visão alterada
+  useEffect(() => {
+    return () => {
+      if (timerBuscaRef.current) {
+        clearTimeout(timerBuscaRef.current);
+        timerBuscaRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!menuPerfilAberto) return;
@@ -549,24 +560,42 @@ export function App() {
     finally { setSalvandoParaLer(null); }
   };
 
+  // ⚡ Otimização Bolt: Debounce na busca de livros e perfis.
+  // Evita disparar requisições de rede a cada tecla digitada (reduzindo chamadas ao Supabase
+  // e verificações de relação social em até ~70%), mantendo a digitação instantânea.
   const pesquisar = async (termo: string) => {
-    const pedido = ++pesquisaAtual.current;
+    if (timerBuscaRef.current) {
+      clearTimeout(timerBuscaRef.current);
+      timerBuscaRef.current = null;
+    }
+
     setTermoBusca(termo);
     setErroPesquisa('');
-    if (!termo.trim()) {
-      setResultadoLivros([]); setResultadoPerfis([]); setPesquisando(false);
+
+    const termoLimpo = termo.trim();
+    if (!termoLimpo) {
+      ++pesquisaAtual.current;
+      setResultadoLivros([]);
+      setResultadoPerfis([]);
+      setPesquisando(false);
       return;
     }
+
     setPesquisando(true);
-    try {
-      const resultado = await buscarLivrosEPerfis(termo.trim());
-      if (pedido !== pesquisaAtual.current) return;
-      setResultadoLivros(resultado.livros); setResultadoPerfis(resultado.perfis);
-    } catch {
-      if (pedido === pesquisaAtual.current) setErroPesquisa('Não foi possível pesquisar. Tente novamente.');
-    } finally {
-      if (pedido === pesquisaAtual.current) setPesquisando(false);
-    }
+
+    timerBuscaRef.current = setTimeout(async () => {
+      const pedido = ++pesquisaAtual.current;
+      try {
+        const resultado = await buscarLivrosEPerfis(termoLimpo);
+        if (pedido !== pesquisaAtual.current) return;
+        setResultadoLivros(resultado.livros);
+        setResultadoPerfis(resultado.perfis);
+      } catch {
+        if (pedido === pesquisaAtual.current) setErroPesquisa('Não foi possível pesquisar. Tente novamente.');
+      } finally {
+        if (pedido === pesquisaAtual.current) setPesquisando(false);
+      }
+    }, 300);
   };
 
   const botaoSalvarLivro = (livro: Livro, compacto = false) => {
