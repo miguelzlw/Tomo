@@ -14,7 +14,8 @@ Deno.serve(async req => {
     const cliente = createClient(url, Deno.env.get('SUPABASE_ANON_KEY')!, { global: { headers: { Authorization: auth } } });
     const { data: { user }, error } = await cliente.auth.getUser(auth.replace(/^Bearer /i, ''));
     if (error || !user) return responder({ erro: 'Entre novamente na sua conta.' }, 401);
-    const { data: perfil } = await cliente.from('perfis').select('status').eq('id', user.id).single();
+    const { data: perfil, error: erroPerfil } = await cliente.from('perfis').select('status').eq('id', user.id).single();
+    if (erroPerfil) return responder({ erro: 'Não foi possível verificar sua conta agora. Tente novamente mais tarde.' }, 503);
     if (perfil?.status !== 'aprovado') return responder({ erro: 'Sua conta precisa estar aprovada.' }, 403);
     const raw = await req.text();
     if (raw.length > 30000) return responder({ erro: 'Pedido muito grande.' }, 413);

@@ -19,14 +19,14 @@ async function mensagemDaFuncao(data: unknown, error: unknown, padrao: string): 
 
 export async function consultarConexoesIA(): Promise<DisponibilidadeIA> {
   if (!supabase) throw new Error('As conexões de IA precisam do Supabase configurado.');
-  const { data, error } = await supabase.functions.invoke('historias-ia', { body: { acao: 'status' } });
+  const { data, error } = await supabase.functions.invoke('historias-ia', { body: { acao: 'status' }, timeout: 15000 });
   if (error || data?.erro) throw new Error(await mensagemDaFuncao(data, error, 'Não foi possível consultar a IA. Confira sua conexão e tente novamente.'));
   return data;
 }
 
 export async function gerarHistoriaIA(provedor: ProvedorIA, pedido: string): Promise<string> {
   if (!supabase) throw new Error('Configure o Supabase para criar histórias com IA.');
-  const { data, error } = await supabase.functions.invoke('historias-ia', { body: { acao: 'gerar', provedor, pedido } });
+  const { data, error } = await supabase.functions.invoke('historias-ia', { body: { acao: 'gerar', provedor, pedido }, timeout: 70000 });
   if (error || data?.erro) throw new Error(await mensagemDaFuncao(data, error, 'Não foi possível gerar a história. Confira a conexão e tente novamente.'));
   if (typeof data?.texto !== 'string' || !data.texto.trim()) throw new Error('A IA não retornou texto.');
   return data.texto;

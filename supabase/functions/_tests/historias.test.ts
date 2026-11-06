@@ -52,6 +52,15 @@ it('não permite gerar para usuário não aprovado', async () => {
   expect(fetchMock).not.toHaveBeenCalled();
 });
 
+it('informa indisponibilidade ao consultar perfil, sem tratar a conta como pendente', async () => {
+  mocks.perfil.mockResolvedValue({ data: null, error: { message: 'Database unavailable' } });
+  const response = await handler(pedido({ acao: 'gerar', provedor: 'gemini', pedido: 'Uma aventura' }));
+  expect(response.status).toBe(503);
+  expect((await response.json()).erro).toContain('verificar sua conta');
+  expect(mocks.rpc).not.toHaveBeenCalled();
+  expect(fetchMock).not.toHaveBeenCalled();
+});
+
 it('consulta Gemini mesmo se a consulta de conexões MCP falhar', async () => {
   mocks.rpc.mockResolvedValue({ data: null, error: { message: 'MCP indisponível' } });
   const response = await handler(pedido({ acao: 'status' }));
