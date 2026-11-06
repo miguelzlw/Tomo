@@ -24,8 +24,7 @@ Deno.serve(async req => {
     if (body?.acao === 'status') {
       const app = obterUrlTomo();
       const { data: conexao, error: erroConexao } = await cliente.rpc('obter_conexao_mcp');
-      if (erroConexao) return responder({ erro: 'Não foi possível consultar a conexão de IA.' }, 503);
-      return responder({ provedores: provedores.filter(p => config(p).chave && config(p).modelo), mcpUrl: app ? new URL('/api/mcp', app).toString() : `${url}/functions/v1/tomo-mcp`, oauthDisponivel: Boolean(app), conexao });
+      return responder({ provedores: provedores.filter(p => config(p).chave && config(p).modelo), mcpUrl: app ? new URL('/api/mcp', app).toString() : `${url}/functions/v1/tomo-mcp`, oauthDisponivel: Boolean(app), mcpDisponivel: !erroConexao, conexao: erroConexao ? undefined : conexao });
     }
     if (body?.acao !== 'gerar') return responder({ erro: 'Ação inválida.' }, 400);
     let pedido;
@@ -33,11 +32,17 @@ Deno.serve(async req => {
     const { chave, modelo } = config(pedido.provedor);
     if (!chave || !modelo) return responder({ erro: 'Esta IA ainda não foi configurada pelo administrador.' }, 503);
     const { error: limite } = await cliente.rpc('reservar_geracao_ia');
-    if (limite) return responder({ erro: 'Não foi possível reservar a geração. O limite é de 20 tentativas por dia; confira também a configuração do serviço.' }, 429);
+    if (limite) {
+      if (limite.message === 'Limite diário de 20 gerações atingido') return responder({ erro: 'Você atingiu o limite de 20 tentativas de hoje. Volte amanhã para criar mais histórias.' }, 429);
+      if (limite.message === 'Conta não aprovada') return responder({ erro: 'Sua conta precisa estar aprovada.' }, 403);
+      return responder({ erro: 'Não foi possível verificar seu limite agora. Tente novamente mais tarde.' }, 503);
+    }
     const chamada = requisicaoIA(pedido.provedor, modelo, chave, pedido.pedido);
     const resultado = await fetch(chamada.url, { method: 'POST', headers: chamada.headers, body: JSON.stringify(chamada.body), signal: AbortSignal.timeout(55000) });
     if (!resultado.ok) return responder({ erro: resultado.status === 429 ? 'A cota compartilhada da IA foi atingida. Tente novamente mais tarde.' : 'A IA não conseguiu gerar a história. Tente novamente mais tarde ou avise o administrador.' }, resultado.status === 429 ? 429 : 502);
-    return responder({ texto: extrairTextoIA(pedido.provedor, await resultado.json()) });
+    const resposta = await resultado.json();
+    try { return responder({ texto: extrairTextoIA(pedido.provedor, resposta) }); }
+    catch (e) { return responder({ erro: e instanceof Error ? e.message : 'A IA não concluiu a história. Reformule o pedido.' }, 422); }
   } catch {
     return responder({ erro: 'Não foi possível concluir a história. Tente um pedido mais curto ou tente novamente mais tarde.' }, 503);
   }

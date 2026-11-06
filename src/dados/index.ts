@@ -852,24 +852,27 @@ export async function salvarPaginas(livroId: string, paginas: Array<{ numero: nu
   if (!usuario) return false;
 
   // Validação: Máximo 1.500 caracteres por página
-  for (const p of paginas) {
+  for (const [indice, p] of paginas.entries()) {
+    if (p.numero !== indice + 1) throw new Error('As páginas devem estar em sequência, começando por 1.');
     if (p.texto.length > 1500) {
       throw new Error(`A página ${p.numero} ultrapassou o limite de 1.500 caracteres.`);
     }
   }
 
   if (isSupabaseConfigured && supabase) {
-    // Substitui páginas do livro
-    await supabase.from('paginas').delete().eq('livro_id', livroId);
+    // Preserve the stored text if the replacement fails. The existing unique
+    // (livro_id, numero) constraint lets one upsert replace the supplied pages.
     if (paginas.length > 0) {
       const registros = paginas.map((p) => ({
         livro_id: livroId,
         numero: p.numero,
         texto: p.texto,
       }));
-      const { error } = await supabase.from('paginas').insert(registros);
+      const { error } = await supabase.from('paginas').upsert(registros, { onConflict: 'livro_id,numero' });
       if (error) throw error;
     }
+    const { error: erroLimpeza } = await supabase.from('paginas').delete().eq('livro_id', livroId).gt('numero', paginas.length);
+    if (erroLimpeza) throw erroLimpeza;
     return true;
   }
 

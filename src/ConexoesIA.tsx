@@ -3,7 +3,7 @@ import { CircleCheck, Link2, ArrowUpRight, Copy } from 'lucide-react';
 import { consultarConexoesIA, criarTokenMCP, revogarTokenMCP, listarConexoesMCP, revogarConexaoMCP } from './dados';
 import type { DisponibilidadeIA, ConexaoMCP } from './dados';
 
-export function ConexoesIA() {
+export function ConexoesIA({ criarHistoria }: { criarHistoria?: () => void | Promise<void> } = {}) {
   const [status, setStatus] = useState<DisponibilidadeIA | null>(null);
   const [erro, setErro] = useState('');
   const [token, setToken] = useState('');
@@ -13,6 +13,7 @@ export function ConexoesIA() {
   const [conexoes, setConexoes] = useState<ConexaoMCP[]>([]);
   const [carregandoConexoes, setCarregandoConexoes] = useState(true);
   const [erroConexoes, setErroConexoes] = useState('');
+  const [externoAberto, setExternoAberto] = useState(false);
   const data = (valor: string) => new Date(valor).toLocaleDateString('pt-BR');
   async function recarregarConexoes() {
     setCarregandoConexoes(true); setErroConexoes('');
@@ -31,9 +32,15 @@ export function ConexoesIA() {
   useEffect(() => {
     let ativo = true;
     consultarConexoesIA().then(s => { if (ativo) setStatus(s); }).catch(e => { if (ativo) setErro(e.message); });
-    listarConexoesMCP().then(c => { if (ativo) setConexoes(c); }).catch(e => { if (ativo) setErroConexoes(e instanceof Error ? e.message : 'Não foi possível listar as conexões.'); }).finally(() => { if (ativo) setCarregandoConexoes(false); });
     return () => { ativo = false; };
   }, []);
+  useEffect(() => {
+    if (!externoAberto) return;
+    let ativo = true;
+    setCarregandoConexoes(true); setErroConexoes('');
+    listarConexoesMCP().then(c => { if (ativo) setConexoes(c); }).catch(e => { if (ativo) setErroConexoes(e instanceof Error ? e.message : 'Não foi possível listar as conexões.'); }).finally(() => { if (ativo) setCarregandoConexoes(false); });
+    return () => { ativo = false; };
+  }, [externoAberto]);
   async function executar(revogar: boolean) {
     setOcupado(true); setErro(''); setAviso('');
     try {
@@ -49,10 +56,24 @@ export function ConexoesIA() {
     catch (e) { setErro(e instanceof Error ? e.message : 'Não foi possível revogar a conexão.'); }
     finally { setOcupado(false); }
   }
+  async function comecar() {
+    if (!criarHistoria || ocupado) return;
+    setOcupado(true); setErro('');
+    try { await criarHistoria(); }
+    catch (e) { setErro(e instanceof Error ? e.message : 'Não foi possível abrir seu novo livro.'); }
+    finally { setOcupado(false); }
+  }
   return <section className="ia-panel" aria-labelledby="ia-conexoes-titulo">
-    <h2 id="ia-conexoes-titulo">Escreva com sua IA favorita</h2>
-    <p>Escolha onde você quer criar suas histórias. Depois de conectar, peça à IA para salvar no Tomo como rascunho.</p>
-    {status && <div className="ia-connection-status" role="status">{status.conexao?.ativo ? <><CircleCheck size={20} /><span><strong>Acesso à IA ativado</strong><br />Seu aplicativo conectado pode salvar histórias nos seus rascunhos.{status.conexao.expira_em && <> Válido até {new Date(status.conexao.expira_em).toLocaleDateString('pt-BR')}.</>}</span></> : <><Link2 size={20} /><span>Nenhum aplicativo conectado. Escolha abaixo como começar.</span></>}</div>}
+    <h2 id="ia-conexoes-titulo">Crie sua próxima história</h2>
+    <p>Use o Gemini aqui no Tomo. Não é necessário criar uma chave, conectar outra conta ou sair do site.</p>
+    {status && <div className="ia-connection-status" role="status"><CircleCheck size={20} /><span>{status.provedores.includes('gemini') ? 'Gemini disponível no Tomo.' : status.provedores.length ? 'Criação com IA disponível no editor.' : 'A criação com IA ainda não está disponível.'}</span></div>}
+    {!status && !erro && <p role="status">Consultando disponibilidade…</p>}
+    {criarHistoria && <button className="btn-primary" disabled={ocupado || !status?.provedores.length} onClick={() => void comecar()}>{ocupado ? 'Abrindo livro…' : 'Começar uma história'}</button>}
+    <ol className="ia-writing-steps"><li>Conte sua ideia em Criar com IA.</li><li>Revise e use Adicionar ao livro.</li><li>Salve o rascunho. Publicar é separado.</li></ol>
+    <p className="ia-note">A cota é compartilhada, com até 20 tentativas por pessoa ao dia. No serviço gratuito do Google, pedidos e respostas podem ser usados para melhorar os serviços.</p>
+    <details className="ia-external" open={externoAberto} onToggle={e => setExternoAberto(e.currentTarget.open)}><summary>Usar o Tomo em outro aplicativo (avançado)</summary>
+    <p>Esta opção é separada: você escreve no ChatGPT ou Claude e pede para salvar um rascunho no Tomo. Ela não é necessária para usar o Gemini aqui.</p>
+    {status && <div className="ia-connection-status" role="status">{status.mcpDisponivel === false ? <><Link2 size={20} /><span>Não foi possível consultar a conexão externa agora. A criação com Gemini no Tomo continua independente.</span></> : status.conexao?.ativo ? <><CircleCheck size={20} /><span><strong>Acesso à IA ativado</strong><br />Seu aplicativo conectado pode salvar histórias nos seus rascunhos.{status.conexao.expira_em && <> Válido até {new Date(status.conexao.expira_em).toLocaleDateString('pt-BR')}.</>}</span></> : <><Link2 size={20} /><span>Nenhum aplicativo conectado. Escolha abaixo como começar.</span></>}</div>}
     <div className="ia-provider-choices" aria-label="Escolher aplicativo de IA">
       <button className="ia-provider-choice" aria-pressed={escolha === 'claude'} onClick={() => { setEscolha('claude'); setAviso(''); }}><img className="ia-provider-logo" src="/images/claude-logo.png" width="42" height="42" alt="" /><span><strong>Conectar com Claude</strong><small>Crie histórias no Claude e salve aqui.</small></span><ArrowUpRight size={19} aria-hidden="true" /></button>
       <button className="ia-provider-choice" aria-pressed={escolha === 'openai'} onClick={() => { setEscolha('openai'); setAviso(''); }}><img className="ia-provider-logo" src="/images/chatgpt-logo.png" width="42" height="42" alt="" /><span><strong>Conectar com ChatGPT</strong><small>Leve suas ideias do ChatGPT ao Tomo.</small></span><ArrowUpRight size={19} aria-hidden="true" /></button>
@@ -74,6 +95,7 @@ export function ConexoesIA() {
       <div className="ia-actions"><button className="btn-secondary" disabled={!status || ocupado} onClick={() => void executar(false)}>Gerar novo acesso MCP</button><button className="btn-secondary" disabled={!status || ocupado} onClick={() => void executar(true)}>Revogar todas as conexões</button></div>
       {token && <label className="form-label">Token: copie agora e guarde em segurança. Ele não será mostrado novamente.<textarea className="form-input" readOnly value={token} onFocus={e => e.target.select()} /></label>}</details>
     </details>
-    {erro && <p role="alert">{erro}</p>}{aviso && <p role="status">{aviso}</p>}
+    </details>
+    {erro && <div role="alert"><p>{erro}</p>{!status && <button className="btn-secondary" onClick={() => { setErro(''); void consultarConexoesIA().then(setStatus).catch(e => setErro(e instanceof Error ? e.message : 'Não foi possível consultar a IA.')); }}>Tentar consultar novamente</button>}</div>}{aviso && <p role="status">{aviso}</p>}
   </section>;
 }

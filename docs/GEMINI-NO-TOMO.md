@@ -15,6 +15,14 @@ Configurado em 05/11/2026 por solicitação de Miguel. Usuários aprovados usam 
 
 No editor de livro, abrir **Criar com IA**, descrever a história e escolher **Gerar história**. Gemini é priorizado quando o servidor o anuncia disponível. A resposta aparece em uma prévia editável; **Adicionar ao livro** insere novas páginas sem publicar ou substituir as existentes.
 
+Na navegação principal, **Criar com IA → Começar uma história** abre um novo rascunho com o painel expandido. Exemplos de aventura, mistério e história infantil ajudam a começar. As conexões externas ficam em uma seção avançada separada.
+
+Pedidos aceitam até 6.000 caracteres. A orientação é pedir até cerca de 1.200 palavras por vez; o tamanho final depende do modelo. A IA recebe apenas o pedido: para continuar ou revisar um texto, inclua o trecho necessário. Não há acesso automático às páginas do livro.
+
+A prévia e o pedido ficam em `sessionStorage`, separados por usuário e livro, para recuperação na mesma aba. Isso não substitui salvar o livro e não garante recuperação depois de fechar a aba. Ao sair da conta, as prévias desse usuário são removidas. Se o navegador bloquear esse armazenamento, a tela informa.
+
+Durante a geração, os controles que saem do editor ficam bloqueados. Ao voltar com alterações, o editor salva antes de sair; falhas mantêm o texto na tela. O salvamento grava as páginas antes de remover páginas excedentes. Essas duas operações não são uma transação única.
+
 A tela informa antes do envio que o Google pode usar pedidos e respostas para melhorar seus produtos no serviço gratuito. Trata-se de conteúdo, não de respostas a questionários. Não enviar material confidencial ou dados pessoais sensíveis. Os termos Google exigem público adulto e impõem condições regionais.
 
 ## Manutenção

@@ -5,6 +5,7 @@ import { useAnimacaoRolagem } from './useAnimacaoRolagem';
 import { MarcaTomo } from './MarcaTomo';
 import { BotaoConectarIA, JanelaConectarIA } from './ConectarIA';
 import { CriarComIA } from './CriarComIA';
+import { limparPreviasIA } from './rascunhoIA';
 import { prepararInsercaoIA } from './ia';
 import { ConsultasCompartilhadas } from './dados/consultasCompartilhadas';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -112,6 +113,7 @@ export function App() {
   const [authAviso, setAuthAviso] = useState<string | null>(null);
   const [authEnviando, setAuthEnviando] = useState(false);
   const [entradaLogin, setEntradaLogin] = useState(false);
+  const [iaIniciarAberto, setIAIniciarAberto] = useState(false);
   const perfilAposEntrada = useRef<Perfil | null>(null);
   const prepararTelaAposEntrada = useCallback(() => {
     if (perfilAposEntrada.current) setUsuario(perfilAposEntrada.current);
@@ -209,7 +211,16 @@ export function App() {
   const [editPaginas, setEditPaginas] = useState<Array<{ numero: number; texto: string }>>([{ numero: 1, texto: '' }]);
   const [editPaginaAtual, setEditPaginaAtual] = useState(1);
   const [editStatusSalvo, setEditStatusSalvo] = useState<'salvo' | 'salvando' | 'alterado'>('salvo');
+  const [iaGerando, setIAGerando] = useState(false);
+  const revisaoEditor = useRef(0);
+  const marcarEditorAlterado = useCallback(() => { revisaoEditor.current++; setEditStatusSalvo('alterado'); }, []);
   const autoSaveTimerRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (visaoAtiva !== 'editor' || (editStatusSalvo === 'salvo' && !iaGerando)) return;
+    const proteger = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ''; };
+    window.addEventListener('beforeunload', proteger);
+    return () => window.removeEventListener('beforeunload', proteger);
+  }, [visaoAtiva, editStatusSalvo, iaGerando]);
 
   // Estados do Leitor
   const [livroLeitura, setLivroLeitura] = useState<Livro | null>(null);
@@ -396,9 +407,10 @@ export function App() {
 
     autoSaveTimerRef.current = window.setInterval(async () => {
       if (editStatusSalvo === 'alterado') {
+        const revisao = revisaoEditor.current;
         try {
           setEditStatusSalvo('salvando');
-          await atualizarLivro(editLivroId, {
+          const atualizado = await atualizarLivro(editLivroId, {
             titulo: editTitulo,
             descricao: editDescricao,
             capa_url: editCapaUrl,
@@ -406,11 +418,15 @@ export function App() {
             visibilidade: editVisibilidade,
             situacao: editSituacao,
           });
-          await salvarPaginas(editLivroId, editPaginas);
+          if (!atualizado) throw new Error('Não foi possível salvar o livro.');
+          if (!await salvarPaginas(editLivroId, editPaginas)) throw new Error('Não foi possível salvar as páginas.');
           if (editSituacao === 'lancado') setLivroJaLancado(true);
-          setEditStatusSalvo('salvo');
+          setEditStatusSalvo(revisao === revisaoEditor.current ? 'salvo' : 'alterado');
+          setErroRascunho('');
         } catch (err) {
           console.error('Erro no autosave:', err);
+          setEditStatusSalvo('alterado');
+          setErroRascunho('O salvamento automático falhou. Seu texto continua aqui; tente Salvar novamente.');
         }
       }
     }, 30000); // 30s
@@ -465,6 +481,7 @@ export function App() {
 
   const handleLogout = async () => {
     await sairConta();
+    if (usuario) limparPreviasIA(usuario.id);
     setUsuario(null);
     setVisaoAtiva('principal');
   };
@@ -478,6 +495,7 @@ export function App() {
         visibilidade: 'privado',
       });
       if (novo) {
+        setIAIniciarAberto(false);
         setLivroJaLancado(false);
         setEditLivroId(novo.id);
         setEditTitulo(novo.titulo);
@@ -490,16 +508,19 @@ export function App() {
         setEditPaginaAtual(1);
         setEditStatusSalvo('salvo');
         setVisaoAtiva('editor');
+        return true;
       }
     } catch (e: any) {
       alert(e.message || 'Erro ao criar livro.');
     }
+    return false;
   };
 
   const abrirEditorLivro = async (livro: Livro) => {
     try {
       const paginas = await obterPaginasDoLivro(livro.id);
       setErroRascunho('');
+      setIAIniciarAberto(false);
       setLivroJaLancado(livro.situacao === 'lancado');
       setEditLivroId(livro.id);
       setEditTitulo(livro.titulo);
@@ -619,11 +640,11 @@ export function App() {
   };
 
   const voltarParaRascunho = async () => {
-    if (!editLivroId || voltandoRascunho || editStatusSalvo === 'salvando') return;
+    if (!editLivroId || voltandoRascunho || editStatusSalvo === 'salvando' || iaGerando) return;
     if (autoSaveTimerRef.current) window.clearInterval(autoSaveTimerRef.current);
     setVoltandoRascunho(true); setEditStatusSalvo('salvando'); setErroRascunho('');
     try {
-      await salvarPaginas(editLivroId, editPaginas);
+      if (!await salvarPaginas(editLivroId, editPaginas)) throw new Error('Não foi possível salvar as páginas.');
       const livro = await atualizarLivro(editLivroId, {
         titulo: editTitulo, descricao: editDescricao, capa_url: editCapaUrl,
         fundo_url: editFundoUrl, situacao: 'rascunho', visibilidade: 'privado',
@@ -638,7 +659,8 @@ export function App() {
   };
 
   const salvarEditorManual = async () => {
-    if (!editLivroId || editStatusSalvo === 'salvando') return;
+    if (!editLivroId || editStatusSalvo === 'salvando' || iaGerando) return;
+    const revisao = revisaoEditor.current;
     try {
       setEditStatusSalvo('salvando');
       const atualizado = await atualizarLivro(editLivroId, {
@@ -650,7 +672,8 @@ export function App() {
         situacao: editSituacao,
       });
       if (!atualizado) throw new Error('Não foi possível salvar o livro. Tente novamente.');
-      await salvarPaginas(editLivroId, editPaginas);
+      if (!await salvarPaginas(editLivroId, editPaginas)) throw new Error('Não foi possível salvar as páginas.');
+      if (revisao !== revisaoEditor.current) { setEditStatusSalvo('alterado'); return; }
       setEditStatusSalvo('salvo');
       setAbaAtual('criar_editar');
       setVisaoAtiva('principal');
@@ -749,7 +772,7 @@ export function App() {
     // Re-numera todas as páginas
     novas.forEach((pg, idx) => { pg.numero = idx + 1; });
     setEditPaginas(novas);
-    setEditStatusSalvo('alterado');
+    marcarEditorAlterado();
     // Avança para a última página inserida
     if (chunks.length > 1) {
       setEditPaginaAtual(editPaginaAtual + chunks.length - 1);
@@ -830,7 +853,7 @@ export function App() {
     return (
       <div className="app-container book-editor-shell">
         <header className="top-header editor-topbar">
-          <button className="btn-secondary" onClick={() => setVisaoAtiva('principal')} style={{ padding: '6px 12px' }}>
+          <button className="btn-secondary" disabled={editStatusSalvo === 'salvando' || iaGerando} onClick={() => { if (editStatusSalvo === 'alterado') void salvarEditorManual(); else setVisaoAtiva('principal'); }} style={{ padding: '6px 12px' }}>
             <ChevronLeft size={16} /> Voltar
           </button>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -838,16 +861,17 @@ export function App() {
             <span style={{ fontSize: '0.8rem', color: editStatusSalvo === 'salvo' ? 'var(--accent-success)' : 'var(--accent-amber)' }}>
               {editStatusSalvo === 'salvando' ? 'Salvando...' : editStatusSalvo === 'salvo' ? 'Salvo' : 'Alterações pendentes'}
             </span>
-            <button className="btn-danger" disabled={editStatusSalvo === 'salvando'} onClick={handleMoverParaLixeiraEditor} style={{ padding: '6px 12px' }} title={livroJaLancado ? 'Mover para a lixeira' : 'Excluir rascunho definitivamente'}>
+            <button className="btn-danger" disabled={editStatusSalvo === 'salvando' || iaGerando} onClick={handleMoverParaLixeiraEditor} style={{ padding: '6px 12px' }} title={livroJaLancado ? 'Mover para a lixeira' : 'Excluir rascunho definitivamente'}>
               <Trash2 size={16} /> Excluir
             </button>
-            <button className="btn-primary" disabled={editStatusSalvo === 'salvando'} onClick={salvarEditorManual} style={{ padding: '6px 14px' }}>
+            <button className="btn-primary" disabled={editStatusSalvo === 'salvando' || iaGerando} onClick={salvarEditorManual} style={{ padding: '6px 14px' }}>
               Salvar
             </button>
           </div>
         </header>
 
         <main className="main-view">
+          <fieldset className="editor-content-fields" disabled={editStatusSalvo === 'salvando'} aria-label="Conteúdo do livro">
           <header className="editor-heading"><h1>Seu livro</h1><div className="editor-page-toolbar">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <button
@@ -881,7 +905,7 @@ export function App() {
                       novas.forEach((pg, idx) => { pg.numero = idx + 1; });
                       setEditPaginas(novas);
                       setEditPaginaAtual(editPaginaAtual + 1);
-                      setEditStatusSalvo('alterado');
+                      marcarEditorAlterado();
                     }}
                     style={{ padding: '6px 12px', fontSize: '0.8rem' }}
                   >
@@ -896,7 +920,7 @@ export function App() {
                         novas.forEach((pg, idx) => { pg.numero = idx + 1; });
                         setEditPaginas(novas);
                         setEditPaginaAtual(Math.max(1, editPaginaAtual - 1));
-                        setEditStatusSalvo('alterado');
+                        marcarEditorAlterado();
                       }}
                       style={{ padding: '6px 10px', fontSize: '0.8rem' }}
                     >
@@ -905,11 +929,11 @@ export function App() {
                   )}
                 </div>
               </div></header>
-          <CriarComIA key={editLivroId} inserir={(texto) => {
+          <CriarComIA key={editLivroId} iniciarAberto={iaIniciarAberto} aoGerar={setIAGerando} salvando={editStatusSalvo === 'salvando'} chaveRascunho={`${usuario.id}:${editLivroId}`} inserir={(texto) => {
             const paginas = prepararInsercaoIA(editPaginas, texto);
             setEditPaginas(paginas);
             setEditPaginaAtual(editPaginas.length === 1 && !editPaginas[0].texto ? 1 : editPaginas.length + 1);
-            setEditStatusSalvo('alterado');
+            marcarEditorAlterado();
           }} />
           <div className="book-editor-layout">
             {/* Metadados do Livro */}
@@ -922,7 +946,7 @@ export function App() {
                   className="form-input"
                   style={{ fontSize: '1.2rem', fontWeight: 600 }}
                   value={editTitulo}
-                  onChange={(e) => { setEditTitulo(e.target.value); setEditStatusSalvo('alterado'); }}
+                  onChange={(e) => { setEditTitulo(e.target.value); marcarEditorAlterado(); }}
                 />
               </div>
 
@@ -933,7 +957,7 @@ export function App() {
                   className="form-input"
                   placeholder="Uma breve introdução sobre a obra..."
                   value={editDescricao}
-                  onChange={(e) => { setEditDescricao(e.target.value); setEditStatusSalvo('alterado'); }}
+                  onChange={(e) => { setEditDescricao(e.target.value); marcarEditorAlterado(); }}
                 />
               </div>
 
@@ -943,7 +967,7 @@ export function App() {
                   {livroJaLancado ? <p id="editor-status" className="editor-static-status">Lançado</p> : <select id="editor-status"
                     className="form-select"
                     value={editSituacao}
-                    onChange={(e) => { setEditSituacao(e.target.value as any); setEditStatusSalvo('alterado'); }}
+                    onChange={(e) => { setEditSituacao(e.target.value as any); marcarEditorAlterado(); }}
                   >
                     {!livroJaLancado && <option value="rascunho">Rascunho</option>}
                     <option value="lancado">Lançado</option>
@@ -955,7 +979,7 @@ export function App() {
                   <select id="editor-visibility"
                     className="form-select"
                     value={editVisibilidade}
-                    onChange={(e) => { setEditVisibilidade(e.target.value as any); setEditStatusSalvo('alterado'); }}
+                    onChange={(e) => { setEditVisibilidade(e.target.value as any); marcarEditorAlterado(); }}
                   >
                     <option value="privado">Só eu</option>
                     <option value="amigos">Amigos</option>
@@ -972,7 +996,7 @@ export function App() {
                     className="form-input"
                     placeholder="https://exemplo.com/capa.jpg"
                     value={editCapaUrl}
-                    onChange={(e) => { setEditCapaUrl(e.target.value); setEditStatusSalvo('alterado'); }}
+                    onChange={(e) => { setEditCapaUrl(e.target.value); marcarEditorAlterado(); }}
                   />
                 </div>
 
@@ -983,7 +1007,7 @@ export function App() {
                     className="form-input"
                     placeholder="Cor hex (#f4ecd8) ou link de imagem"
                     value={editFundoUrl}
-                    onChange={(e) => { setEditFundoUrl(e.target.value); setEditStatusSalvo('alterado'); }}
+                    onChange={(e) => { setEditFundoUrl(e.target.value); marcarEditorAlterado(); }}
                   />
                 </div>
               </div>
@@ -991,7 +1015,7 @@ export function App() {
               {livroJaLancado && <div className="return-draft-card">
                 <h2>Voltar para rascunho</h2>
                 <p>O livro deixa de ser publicado e fica visível só para você. Seu texto será mantido.</p>
-                <button className="btn-secondary" disabled={voltandoRascunho || editStatusSalvo === 'salvando'} onClick={() => void voltarParaRascunho()}>{voltandoRascunho ? 'Salvando…' : 'Voltar para rascunho'}</button>
+                <button className="btn-secondary" disabled={voltandoRascunho || editStatusSalvo === 'salvando' || iaGerando} onClick={() => void voltarParaRascunho()}>{voltandoRascunho ? 'Salvando…' : 'Voltar para rascunho'}</button>
               </div>}
               {erroRascunho && <p role="alert" className="editor-draft-error">{erroRascunho}</p>}
             </div>
@@ -1021,7 +1045,7 @@ export function App() {
                     texto: e.target.value,
                   };
                   setEditPaginas(novas);
-                  setEditStatusSalvo('alterado');
+                  marcarEditorAlterado();
                 }}
               />
 
@@ -1035,6 +1059,7 @@ export function App() {
               </div>
             </section>
           </div>
+          </fieldset>
         </main>
       </div>
     );
@@ -1285,7 +1310,9 @@ export function App() {
         void atualizarLivrosAposExclusao().catch(console.error);
       }} />}
 
-      {conectandoIA && <JanelaConectarIA key={usuario.id} fechar={() => {
+      {conectandoIA && <JanelaConectarIA key={usuario.id} criarHistoria={async () => {
+        if (await abrirNovoLivro()) { setIAIniciarAberto(true); setConectandoIA(false); }
+      }} fechar={() => {
         setConectandoIA(false);
         const url = new URL(window.location.href);
         url.searchParams.delete('mcp_authorize');

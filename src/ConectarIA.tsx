@@ -18,10 +18,10 @@ export function ArteConexaoIA() {
 }
 
 export function BotaoConectarIA({ abrir }: { abrir: () => void }) {
-  return <button className="ia-connect-button" onClick={abrir} aria-haspopup="dialog"><ArteConexaoIA /><span>Conectar com IA</span></button>;
+  return <button className="ia-connect-button" onClick={abrir} aria-haspopup="dialog"><ArteConexaoIA /><span>Criar com IA</span></button>;
 }
 
-export function JanelaConectarIA({ fechar }: { fechar: () => void }) {
+export function JanelaConectarIA({ fechar, criarHistoria }: { fechar: () => void; criarHistoria?: () => void | Promise<void> }) {
   const dialog = useRef<HTMLDialogElement>(null);
   useLayoutEffect(() => {
     const elemento = dialog.current!;
@@ -32,9 +32,9 @@ export function JanelaConectarIA({ fechar }: { fechar: () => void }) {
     return () => { document.body.style.overflow = overflow; elemento.close(); anterior?.focus(); };
   }, []);
   return <dialog ref={dialog} className="ia-connect-dialog" aria-labelledby="ia-dialog-title" onCancel={fechar} onClick={e => { if (e.target === e.currentTarget) { const box = e.currentTarget.getBoundingClientRect(); if (e.clientX < box.left || e.clientX > box.right || e.clientY < box.top || e.clientY > box.bottom) fechar(); } }}>
-    <button className="ia-dialog-close" aria-label="Fechar conexões de IA" onClick={fechar} autoFocus><X size={22} /></button>
-    <header className="ia-dialog-heading"><ArteConexaoIA /><div><span className="ia-dialog-eyebrow">Um novo capítulo</span><h1 id="ia-dialog-title">Conectar com IA</h1><p>Suas ideias, mais possibilidades de histórias.</p></div></header>
+    <button className="ia-dialog-close" aria-label="Fechar janela de IA" onClick={fechar} autoFocus><X size={22} /></button>
+    <header className="ia-dialog-heading"><ArteConexaoIA /><div><span className="ia-dialog-eyebrow">Um novo capítulo</span><h1 id="ia-dialog-title">Histórias com IA</h1><p>Da sua ideia às páginas do seu livro.</p></div></header>
     <AutorizarMCP />
-    <ConexoesIA />
+    <ConexoesIA criarHistoria={criarHistoria} />
   </dialog>;
 }

@@ -34,7 +34,7 @@ it('gera pelo Gemini após reservar a cota da conta', async () => {
   expect(fetchMock.mock.calls[0][0]).toBe('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent');
 });
 it('não faz chamada ao Google quando a conta esgota seu limite', async () => {
-  mocks.rpc.mockResolvedValue({ error: { message: 'limite' } });
+  mocks.rpc.mockResolvedValue({ error: { message: 'Limite diário de 20 gerações atingido' } });
   const response = await handler(pedido({ acao: 'gerar', provedor: 'gemini', pedido: 'Uma aventura' }));
   expect(response.status).toBe(429);
   expect(fetchMock).not.toHaveBeenCalled();
@@ -50,4 +50,27 @@ it('não permite gerar para usuário não aprovado', async () => {
   const response = await handler(pedido({ acao: 'gerar', provedor: 'gemini', pedido: 'Uma aventura' }));
   expect(response.status).toBe(403);
   expect(fetchMock).not.toHaveBeenCalled();
+});
+
+it('consulta Gemini mesmo se a consulta de conexões MCP falhar', async () => {
+  mocks.rpc.mockResolvedValue({ data: null, error: { message: 'MCP indisponível' } });
+  const response = await handler(pedido({ acao: 'status' }));
+  expect(response.status).toBe(200);
+  expect((await response.json()).provedores).toEqual(['gemini']);
+  expect(fetchMock).not.toHaveBeenCalled();
+});
+
+it('não apresenta erro técnico no banco como cota esgotada', async () => {
+  mocks.rpc.mockResolvedValue({ error: { message: 'Database unavailable' } });
+  const response = await handler(pedido({ acao: 'gerar', provedor: 'gemini', pedido: 'Uma aventura' }));
+  expect(response.status).toBe(503);
+  expect(fetchMock).not.toHaveBeenCalled();
+});
+
+it('explica bloqueio do provedor sem tratá-lo como indisponibilidade do servidor', async () => {
+  fetchMock.mockResolvedValue(new Response(JSON.stringify({ candidates: [{ finishReason: 'SAFETY' }] })));
+  const response = await handler(pedido({ acao: 'gerar', provedor: 'gemini', pedido: 'Uma aventura' }));
+  expect(response.status).toBe(422);
+  expect((await response.json()).erro).toContain('Reformule');
+  expect(fetchMock).toHaveBeenCalledOnce();
 });
