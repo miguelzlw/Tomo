@@ -13,6 +13,7 @@
 .ia-providers li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding: 12px 0; border-bottom: 1px solid var(--border-subtle); }
 .ia-providers span, .ia-note { color: var(--text-muted); font-size: .85rem; }
 .ia-actions { display: flex; flex-wrap: wrap; gap: 12px; margin: 16px 0; }
+.ia-start-button { min-width: 140px; min-height: 48px; margin-top: 12px; border-radius: 4px; }
 .ia-preview { font-family: var(--font-editorial); font-size: 1.1rem; line-height: 1.7; }
 .ia-examples { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
 .ia-examples button { min-height: 44px; padding: 8px 14px; border: 1px solid var(--border-card); border-radius: var(--radius-sm); background: var(--bg-input); color: var(--text-main); font: inherit; cursor: pointer; }

@@ -13,9 +13,9 @@ Configurado em 05/11/2026 por solicitação de Miguel. Usuários aprovados usam 
 
 ## Experiência
 
-No editor de livro, abrir **Criar com IA**, descrever a história e escolher **Gerar história**. Gemini é priorizado quando o servidor o anuncia disponível. A resposta aparece em uma prévia editável; **Adicionar ao livro** insere novas páginas sem publicar ou substituir as existentes.
+No editor de livro, abrir **Criar com IA**, descrever a história e escolher **Gerar história**. A geração usa somente Gemini, sem seletor de provedor. A resposta aparece em uma prévia editável; **Adicionar ao livro** insere novas páginas sem publicar ou substituir as existentes.
 
-Na navegação principal, **Criar com IA → Começar uma história** abre um novo rascunho com o painel expandido. Exemplos de aventura, mistério e história infantil ajudam a começar. As conexões externas ficam em uma seção avançada separada.
+Na navegação principal, **Criar com IA → Começar** abre um novo rascunho com o painel expandido. A janela inicial apresenta apenas a criação de histórias no Tomo e esse botão; os controles de conexão externa foram removidos da interface. Exemplos de aventura, mistério e história infantil ajudam a começar dentro do editor.
 
 Pedidos aceitam até 6.000 caracteres. A orientação é pedir até cerca de 1.200 palavras por vez; o tamanho final depende do modelo. A IA recebe apenas o pedido: para continuar ou revisar um texto, inclua o trecho necessário. Não há acesso automático às páginas do livro.
 

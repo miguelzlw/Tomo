@@ -1,6 +1,5 @@
-import { useLayoutEffect, useRef } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
-import { ConexoesIA } from './ConexoesIA';
 import { AutorizarMCP } from './AutorizarMCP';
 
 export function ArteConexaoIA() {
@@ -23,6 +22,15 @@ export function BotaoConectarIA({ abrir }: { abrir: () => void }) {
 
 export function JanelaConectarIA({ fechar, criarHistoria }: { fechar: () => void; criarHistoria?: () => void | Promise<void> }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const [abrindo, setAbrindo] = useState(false);
+  const [erro, setErro] = useState('');
+  async function comecar() {
+    if (!criarHistoria || abrindo) return;
+    setAbrindo(true); setErro('');
+    try { await criarHistoria(); }
+    catch (e) { setErro(e instanceof Error ? e.message : 'Não foi possível abrir seu novo livro. Tente novamente.'); }
+    finally { setAbrindo(false); }
+  }
   useLayoutEffect(() => {
     const elemento = dialog.current!;
     const anterior = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -33,8 +41,12 @@ export function JanelaConectarIA({ fechar, criarHistoria }: { fechar: () => void
   }, []);
   return <dialog ref={dialog} className="ia-connect-dialog" aria-labelledby="ia-dialog-title" onCancel={fechar} onClick={e => { if (e.target === e.currentTarget) { const box = e.currentTarget.getBoundingClientRect(); if (e.clientX < box.left || e.clientX > box.right || e.clientY < box.top || e.clientY > box.bottom) fechar(); } }}>
     <button className="ia-dialog-close" aria-label="Fechar janela de IA" onClick={fechar} autoFocus><X size={22} /></button>
-    <header className="ia-dialog-heading"><ArteConexaoIA /><div><span className="ia-dialog-eyebrow">Um novo capítulo</span><h1 id="ia-dialog-title">Histórias com IA</h1><p>Da sua ideia às páginas do seu livro.</p></div></header>
+    <header className="ia-dialog-heading"><ArteConexaoIA /><div><span className="ia-dialog-eyebrow">Um novo capítulo</span><h1 id="ia-dialog-title">Criar com IA</h1><p>Suas ideias ganham novas páginas.</p></div></header>
     <AutorizarMCP />
-    <ConexoesIA criarHistoria={criarHistoria} />
+    <section className="ia-panel">
+      <p>Crie suas histórias com IA aqui no Tomo. Conte o que você imagina, dê vida aos seus personagens e transforme suas ideias nas próximas páginas do seu livro.</p>
+      <button className="btn-primary ia-start-button" disabled={abrindo || !criarHistoria} onClick={() => void comecar()}>{abrindo ? 'Abrindo…' : 'Começar'}</button>
+      {erro && <p role="alert">{erro}</p>}
+    </section>
   </dialog>;
 }
