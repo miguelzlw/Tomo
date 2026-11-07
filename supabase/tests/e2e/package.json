@@ -1,0 +1,1 @@
+{ "name": "tomo-e2e-mcp", "private": true, "type": "module", "scripts": { "test": "node aceite.mjs" }, "dependencies": { "pg": "^8.13.0" } }

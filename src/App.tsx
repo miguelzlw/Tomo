@@ -1,9 +1,11 @@
 import { BotaoTema } from './tema';
+import { LixeiraLivros } from './LixeiraLivros';
 import { EntradaLivro } from './EntradaLivro';
 import { useAnimacaoRolagem } from './useAnimacaoRolagem';
 import { MarcaTomo } from './MarcaTomo';
 import { BotaoConectarIA, JanelaConectarIA } from './ConectarIA';
 import { CriarComIA } from './CriarComIA';
+import { limparPreviasIA } from './rascunhoIA';
 import { prepararInsercaoIA } from './ia';
 import { ConsultasCompartilhadas } from './dados/consultasCompartilhadas';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -72,6 +74,10 @@ import {
   registrarSinalSessao,
   listarAtividadeUsuarios,
   moverParaLixeira,
+  listarLixeira,
+  restaurarDaLixeira,
+  excluirRascunhosDefinitivamente,
+  excluirDaLixeiraDefinitivamente,
 } from './dados';
 import type {
   Perfil,
@@ -107,6 +113,7 @@ export function App() {
   const [authAviso, setAuthAviso] = useState<string | null>(null);
   const [authEnviando, setAuthEnviando] = useState(false);
   const [entradaLogin, setEntradaLogin] = useState(false);
+  const [iaIniciarAberto, setIAIniciarAberto] = useState(false);
   const perfilAposEntrada = useRef<Perfil | null>(null);
   const prepararTelaAposEntrada = useCallback(() => {
     if (perfilAposEntrada.current) setUsuario(perfilAposEntrada.current);
@@ -121,7 +128,7 @@ export function App() {
   // Visões Modais / Telas Secundárias
   const [visaoAtiva, setVisaoAtiva] = useState<'principal' | 'editor' | 'leitor' | 'perfil_visitado' | 'notificacoes'>('principal');
   const conteudoRolagem = useRef<HTMLElement>(null);
-  useAnimacaoRolagem(conteudoRolagem, `${carregandoAuth}:${usuario?.id}:${usuario?.status}:${abaAtual}:${visaoAtiva}`);
+  useAnimacaoRolagem(conteudoRolagem, `${carregandoAuth}:${usuario?.id}:${usuario?.status}:${abaAtual}:${visaoAtiva}`, !entradaLogin && abaAtual === 'dashboard' && visaoAtiva === 'principal');
   const [livroDetalhes, setLivroDetalhes] = useState<Livro | null>(null);
   const [abrindoLivro, setAbrindoLivro] = useState(false);
   const leituraEmCurso = useRef(false);
@@ -157,8 +164,24 @@ export function App() {
   const [perfilVisitado, setPerfilVisitado] = useState<Perfil | null>(null);
   const [livrosPerfilVisitado, setLivrosPerfilVisitado] = useState<Livro[]>([]);
   const [seguindoPerfilVisitado, setSeguindoPerfilVisitado] = useState(false);
+  const [carregandoPerfilVisitado, setCarregandoPerfilVisitado] = useState(false);
+  const [erroPerfilVisitado, setErroPerfilVisitado] = useState('');
+  const pedidoPerfilVisitado = useRef(0);
   const [menuPerfilAberto, setMenuPerfilAberto] = useState(false);
   const menuPerfilRef = useRef<HTMLDivElement>(null);
+  const [lixeiraAberta, setLixeiraAberta] = useState(false);
+  const [livrosNaLixeira, setLivrosNaLixeira] = useState<Livro[]>([]);
+  const [carregandoLixeira, setCarregandoLixeira] = useState(false);
+  const [erroLixeira, setErroLixeira] = useState('');
+  const pedidoLixeira = useRef(0);
+  const [carregandoNotificacoes, setCarregandoNotificacoes] = useState(false);
+  const [erroNotificacoes, setErroNotificacoes] = useState('');
+  const pedidoNotificacoes = useRef(0);
+  useEffect(() => {
+    pedidoLixeira.current++; pedidoPerfilVisitado.current++; pedidoNotificacoes.current++;
+    setCarregandoNotificacoes(false); setCarregandoPerfilVisitado(false); setCarregandoLixeira(false);
+    setLivrosNaLixeira([]); setLixeiraAberta(false);
+  }, [usuario?.id]);
 
   // Estados de Dados do Dashboard
   const [continuarLendo, setContinuarLendo] = useState<ProgressoLeitura[]>([]);
@@ -188,7 +211,16 @@ export function App() {
   const [editPaginas, setEditPaginas] = useState<Array<{ numero: number; texto: string }>>([{ numero: 1, texto: '' }]);
   const [editPaginaAtual, setEditPaginaAtual] = useState(1);
   const [editStatusSalvo, setEditStatusSalvo] = useState<'salvo' | 'salvando' | 'alterado'>('salvo');
+  const [iaGerando, setIAGerando] = useState(false);
+  const revisaoEditor = useRef(0);
+  const marcarEditorAlterado = useCallback(() => { revisaoEditor.current++; setEditStatusSalvo('alterado'); }, []);
   const autoSaveTimerRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (visaoAtiva !== 'editor' || (editStatusSalvo === 'salvo' && !iaGerando)) return;
+    const proteger = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ''; };
+    window.addEventListener('beforeunload', proteger);
+    return () => window.removeEventListener('beforeunload', proteger);
+  }, [visaoAtiva, editStatusSalvo, iaGerando]);
 
   // Estados do Leitor
   const [livroLeitura, setLivroLeitura] = useState<Livro | null>(null);
@@ -320,12 +352,21 @@ export function App() {
   }, [menuPerfilAberto]);
 
   const abrirNotificacoes = async () => {
+    setVisaoAtiva('notificacoes');
+    if (carregandoNotificacoes) return;
+    const pedido = ++pedidoNotificacoes.current;
+    setCarregandoNotificacoes(true); setErroNotificacoes('');
     try {
       const lista = await listarNotificacoes();
-      await Promise.all(lista.filter((n) => !n.lida).map((n) => marcarNotificacaoComoLida(n.id)));
-      setNotificacoes(lista.map((n) => ({ ...n, lida: true })));
-      setVisaoAtiva('notificacoes');
-    } catch { alert('Não foi possível abrir as notificações. Tente novamente.'); }
+      if (pedido !== pedidoNotificacoes.current) return;
+      setNotificacoes(lista); setCarregandoNotificacoes(false);
+      const resultados = await Promise.allSettled(lista.filter((n) => !n.lida).map(async (n) => { await marcarNotificacaoComoLida(n.id); return n.id; }));
+      if (pedido !== pedidoNotificacoes.current) return;
+      const lidas = new Set(resultados.flatMap((resultado) => resultado.status === 'fulfilled' ? [resultado.value] : []));
+      setNotificacoes((atuais) => atuais.map((n) => lidas.has(n.id) ? { ...n, lida: true } : n));
+      if (resultados.some((resultado) => resultado.status === 'rejected')) setErroNotificacoes('Algumas notificações não puderam ser marcadas como lidas.');
+    } catch { if (pedido === pedidoNotificacoes.current) setErroNotificacoes('Não foi possível atualizar as notificações. Tente novamente.'); }
+    finally { if (pedido === pedidoNotificacoes.current) setCarregandoNotificacoes(false); }
   };
 
   const alternarSeguindo = async (perfil: Perfil, removendo = false) => {
@@ -366,9 +407,10 @@ export function App() {
 
     autoSaveTimerRef.current = window.setInterval(async () => {
       if (editStatusSalvo === 'alterado') {
+        const revisao = revisaoEditor.current;
         try {
           setEditStatusSalvo('salvando');
-          await atualizarLivro(editLivroId, {
+          const atualizado = await atualizarLivro(editLivroId, {
             titulo: editTitulo,
             descricao: editDescricao,
             capa_url: editCapaUrl,
@@ -376,11 +418,15 @@ export function App() {
             visibilidade: editVisibilidade,
             situacao: editSituacao,
           });
-          await salvarPaginas(editLivroId, editPaginas);
+          if (!atualizado) throw new Error('Não foi possível salvar o livro.');
+          if (!await salvarPaginas(editLivroId, editPaginas)) throw new Error('Não foi possível salvar as páginas.');
           if (editSituacao === 'lancado') setLivroJaLancado(true);
-          setEditStatusSalvo('salvo');
+          setEditStatusSalvo(revisao === revisaoEditor.current ? 'salvo' : 'alterado');
+          setErroRascunho('');
         } catch (err) {
           console.error('Erro no autosave:', err);
+          setEditStatusSalvo('alterado');
+          setErroRascunho('O salvamento automático falhou. Seu texto continua aqui; tente Salvar novamente.');
         }
       }
     }, 30000); // 30s
@@ -435,6 +481,7 @@ export function App() {
 
   const handleLogout = async () => {
     await sairConta();
+    if (usuario) limparPreviasIA(usuario.id);
     setUsuario(null);
     setVisaoAtiva('principal');
   };
@@ -448,6 +495,7 @@ export function App() {
         visibilidade: 'privado',
       });
       if (novo) {
+        setIAIniciarAberto(false);
         setLivroJaLancado(false);
         setEditLivroId(novo.id);
         setEditTitulo(novo.titulo);
@@ -460,16 +508,19 @@ export function App() {
         setEditPaginaAtual(1);
         setEditStatusSalvo('salvo');
         setVisaoAtiva('editor');
+        return true;
       }
     } catch (e: any) {
       alert(e.message || 'Erro ao criar livro.');
     }
+    return false;
   };
 
   const abrirEditorLivro = async (livro: Livro) => {
     try {
       const paginas = await obterPaginasDoLivro(livro.id);
       setErroRascunho('');
+      setIAIniciarAberto(false);
       setLivroJaLancado(livro.situacao === 'lancado');
       setEditLivroId(livro.id);
       setEditTitulo(livro.titulo);
@@ -589,11 +640,11 @@ export function App() {
   };
 
   const voltarParaRascunho = async () => {
-    if (!editLivroId || voltandoRascunho || editStatusSalvo === 'salvando') return;
+    if (!editLivroId || voltandoRascunho || editStatusSalvo === 'salvando' || iaGerando) return;
     if (autoSaveTimerRef.current) window.clearInterval(autoSaveTimerRef.current);
     setVoltandoRascunho(true); setEditStatusSalvo('salvando'); setErroRascunho('');
     try {
-      await salvarPaginas(editLivroId, editPaginas);
+      if (!await salvarPaginas(editLivroId, editPaginas)) throw new Error('Não foi possível salvar as páginas.');
       const livro = await atualizarLivro(editLivroId, {
         titulo: editTitulo, descricao: editDescricao, capa_url: editCapaUrl,
         fundo_url: editFundoUrl, situacao: 'rascunho', visibilidade: 'privado',
@@ -608,7 +659,8 @@ export function App() {
   };
 
   const salvarEditorManual = async () => {
-    if (!editLivroId || editStatusSalvo === 'salvando') return;
+    if (!editLivroId || editStatusSalvo === 'salvando' || iaGerando) return;
+    const revisao = revisaoEditor.current;
     try {
       setEditStatusSalvo('salvando');
       const atualizado = await atualizarLivro(editLivroId, {
@@ -620,7 +672,8 @@ export function App() {
         situacao: editSituacao,
       });
       if (!atualizado) throw new Error('Não foi possível salvar o livro. Tente novamente.');
-      await salvarPaginas(editLivroId, editPaginas);
+      if (!await salvarPaginas(editLivroId, editPaginas)) throw new Error('Não foi possível salvar as páginas.');
+      if (revisao !== revisaoEditor.current) { setEditStatusSalvo('alterado'); return; }
       setEditStatusSalvo('salvo');
       setAbaAtual('criar_editar');
       setVisaoAtiva('principal');
@@ -631,29 +684,57 @@ export function App() {
   };
 
   const abrirPerfilVisitado = async (autor: Perfil) => {
+    const pedido = ++pedidoPerfilVisitado.current;
+    setPerfilVisitado(autor); setLivrosPerfilVisitado([]); setSeguindoPerfilVisitado(false);
+    setCarregandoPerfilVisitado(true); setErroPerfilVisitado(''); setVisaoAtiva('perfil_visitado');
     try {
-      setPerfilVisitado(autor);
       const [livros, seguindo] = await Promise.all([
-        listarLivrosDoAutor(autor.id),
+        consultasAbas.current.consultar(`publicados-autor:${autor.id}`, () => listarLivrosDoAutor(autor.id)),
         verificarSeguindo(autor.id),
       ]);
+      if (pedido !== pedidoPerfilVisitado.current) return;
       setLivrosPerfilVisitado(livros);
       setSeguindoPerfilVisitado(seguindo);
-      setVisaoAtiva('perfil_visitado');
     } catch (err) {
       console.error(err);
-      alert('Erro ao carregar perfil do autor.');
-    }
+      if (pedido === pedidoPerfilVisitado.current) setErroPerfilVisitado('Não foi possível carregar os livros deste perfil. Tente novamente.');
+    } finally { if (pedido === pedidoPerfilVisitado.current) setCarregandoPerfilVisitado(false); }
   };
 
   const handleMoverParaLixeiraEditor = async () => {
     if (!editLivroId) return;
-    if (confirm('Deseja mover este livro para a lixeira? Você poderá restaurá-lo depois se quiser.')) {
-      await moverParaLixeira(editLivroId);
+    const rascunho = !livroJaLancado;
+    if (confirm(rascunho ? 'Excluir definitivamente este rascunho? Ele não irá para a lixeira e não poderá ser recuperado.' : 'Deseja mover este livro para a lixeira? Você poderá restaurá-lo depois se quiser.')) {
+      try {
+      const sucesso = rascunho ? await excluirRascunhosDefinitivamente([editLivroId]) : await moverParaLixeira(editLivroId);
+      if (!sucesso) throw new Error('Não foi possível excluir o livro.');
+      consultasAbas.current.limpar();
       setVisaoAtiva('principal');
       listarMeusRascunhos().then(setMeusRascunhos);
       listarMeusLivros().then(setMeusLivrosLancados);
+      } catch (e) { alert(e instanceof Error ? e.message : 'Não foi possível excluir o livro.'); }
     }
+  };
+
+  const atualizarLivrosAposExclusao = async () => {
+    consultasAbas.current.limpar();
+    const [rascunhos, publicados, removidos] = await Promise.all([listarMeusRascunhos(), listarMeusLivros(), listarLixeira()]);
+    setMeusRascunhos(rascunhos); setMeusLivrosLancados(publicados); setLivrosNaLixeira(removidos.filter((livro) => livro.situacao === 'lancado'));
+    void Promise.allSettled([listarFeed().then(setFeedLivros), listarSalvosParaLer().then(setSalvosParaLer), listarContinuarLendo().then(setContinuarLendo)]);
+  };
+  const carregarLixeira = async () => {
+    const pedido = ++pedidoLixeira.current;
+    setCarregandoLixeira(true); setErroLixeira('');
+    try {
+      const livros = await consultasAbas.current.consultar('lixeira', listarLixeira);
+      if (pedido === pedidoLixeira.current) setLivrosNaLixeira(livros.filter((livro) => livro.situacao === 'lancado'));
+    } catch { if (pedido === pedidoLixeira.current) setErroLixeira('Não foi possível carregar a lixeira. Tente novamente.'); }
+    finally { if (pedido === pedidoLixeira.current) setCarregandoLixeira(false); }
+  };
+  const abrirLixeira = () => {
+    setMenuPerfilAberto(false);
+    setLixeiraAberta(true);
+    void carregarLixeira();
   };
 
   // --- HANDLER DE PASTE COM PAGINAÇÃO AUTOMÁTICA (RF-23) ---
@@ -691,7 +772,7 @@ export function App() {
     // Re-numera todas as páginas
     novas.forEach((pg, idx) => { pg.numero = idx + 1; });
     setEditPaginas(novas);
-    setEditStatusSalvo('alterado');
+    marcarEditorAlterado();
     // Avança para a última página inserida
     if (chunks.length > 1) {
       setEditPaginaAtual(editPaginaAtual + chunks.length - 1);
@@ -699,7 +780,7 @@ export function App() {
   };
 
   const comEntradaLogin = (conteudo: React.ReactNode) => <>
-    {entradaLogin && <EntradaLivro aguardando={authEnviando || (usuario?.status === 'aprovado' && inicioCarregando)} onPreparar={prepararTelaAposEntrada} onConcluir={concluirEntradaLogin} />}
+    {entradaLogin && <EntradaLivro onPreparar={prepararTelaAposEntrada} onConcluir={concluirEntradaLogin} />}
     <div inert={entradaLogin}>{conteudo}</div>
   </>;
 
@@ -772,7 +853,7 @@ export function App() {
     return (
       <div className="app-container book-editor-shell">
         <header className="top-header editor-topbar">
-          <button className="btn-secondary" onClick={() => setVisaoAtiva('principal')} style={{ padding: '6px 12px' }}>
+          <button className="btn-secondary" disabled={editStatusSalvo === 'salvando' || iaGerando} onClick={() => { if (editStatusSalvo === 'alterado') void salvarEditorManual(); else setVisaoAtiva('principal'); }} style={{ padding: '6px 12px' }}>
             <ChevronLeft size={16} /> Voltar
           </button>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -780,16 +861,17 @@ export function App() {
             <span style={{ fontSize: '0.8rem', color: editStatusSalvo === 'salvo' ? 'var(--accent-success)' : 'var(--accent-amber)' }}>
               {editStatusSalvo === 'salvando' ? 'Salvando...' : editStatusSalvo === 'salvo' ? 'Salvo' : 'Alterações pendentes'}
             </span>
-            <button className="btn-danger" onClick={handleMoverParaLixeiraEditor} style={{ padding: '6px 12px' }} title="Mover para a lixeira">
+            <button className="btn-danger" disabled={editStatusSalvo === 'salvando' || iaGerando} onClick={handleMoverParaLixeiraEditor} style={{ padding: '6px 12px' }} title={livroJaLancado ? 'Mover para a lixeira' : 'Excluir rascunho definitivamente'}>
               <Trash2 size={16} /> Excluir
             </button>
-            <button className="btn-primary" disabled={editStatusSalvo === 'salvando'} onClick={salvarEditorManual} style={{ padding: '6px 14px' }}>
+            <button className="btn-primary" disabled={editStatusSalvo === 'salvando' || iaGerando} onClick={salvarEditorManual} style={{ padding: '6px 14px' }}>
               Salvar
             </button>
           </div>
         </header>
 
         <main className="main-view">
+          <fieldset className="editor-content-fields" disabled={editStatusSalvo === 'salvando'} aria-label="Conteúdo do livro">
           <header className="editor-heading"><h1>Seu livro</h1><div className="editor-page-toolbar">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <button
@@ -823,7 +905,7 @@ export function App() {
                       novas.forEach((pg, idx) => { pg.numero = idx + 1; });
                       setEditPaginas(novas);
                       setEditPaginaAtual(editPaginaAtual + 1);
-                      setEditStatusSalvo('alterado');
+                      marcarEditorAlterado();
                     }}
                     style={{ padding: '6px 12px', fontSize: '0.8rem' }}
                   >
@@ -838,7 +920,7 @@ export function App() {
                         novas.forEach((pg, idx) => { pg.numero = idx + 1; });
                         setEditPaginas(novas);
                         setEditPaginaAtual(Math.max(1, editPaginaAtual - 1));
-                        setEditStatusSalvo('alterado');
+                        marcarEditorAlterado();
                       }}
                       style={{ padding: '6px 10px', fontSize: '0.8rem' }}
                     >
@@ -847,11 +929,11 @@ export function App() {
                   )}
                 </div>
               </div></header>
-          <CriarComIA key={editLivroId} inserir={(texto) => {
+          <CriarComIA key={editLivroId} iniciarAberto={iaIniciarAberto} aoGerar={setIAGerando} salvando={editStatusSalvo === 'salvando'} chaveRascunho={`${usuario.id}:${editLivroId}`} inserir={(texto) => {
             const paginas = prepararInsercaoIA(editPaginas, texto);
             setEditPaginas(paginas);
             setEditPaginaAtual(editPaginas.length === 1 && !editPaginas[0].texto ? 1 : editPaginas.length + 1);
-            setEditStatusSalvo('alterado');
+            marcarEditorAlterado();
           }} />
           <div className="book-editor-layout">
             {/* Metadados do Livro */}
@@ -864,7 +946,7 @@ export function App() {
                   className="form-input"
                   style={{ fontSize: '1.2rem', fontWeight: 600 }}
                   value={editTitulo}
-                  onChange={(e) => { setEditTitulo(e.target.value); setEditStatusSalvo('alterado'); }}
+                  onChange={(e) => { setEditTitulo(e.target.value); marcarEditorAlterado(); }}
                 />
               </div>
 
@@ -875,7 +957,7 @@ export function App() {
                   className="form-input"
                   placeholder="Uma breve introdução sobre a obra..."
                   value={editDescricao}
-                  onChange={(e) => { setEditDescricao(e.target.value); setEditStatusSalvo('alterado'); }}
+                  onChange={(e) => { setEditDescricao(e.target.value); marcarEditorAlterado(); }}
                 />
               </div>
 
@@ -885,7 +967,7 @@ export function App() {
                   {livroJaLancado ? <p id="editor-status" className="editor-static-status">Lançado</p> : <select id="editor-status"
                     className="form-select"
                     value={editSituacao}
-                    onChange={(e) => { setEditSituacao(e.target.value as any); setEditStatusSalvo('alterado'); }}
+                    onChange={(e) => { setEditSituacao(e.target.value as any); marcarEditorAlterado(); }}
                   >
                     {!livroJaLancado && <option value="rascunho">Rascunho</option>}
                     <option value="lancado">Lançado</option>
@@ -897,7 +979,7 @@ export function App() {
                   <select id="editor-visibility"
                     className="form-select"
                     value={editVisibilidade}
-                    onChange={(e) => { setEditVisibilidade(e.target.value as any); setEditStatusSalvo('alterado'); }}
+                    onChange={(e) => { setEditVisibilidade(e.target.value as any); marcarEditorAlterado(); }}
                   >
                     <option value="privado">Só eu</option>
                     <option value="amigos">Amigos</option>
@@ -914,7 +996,7 @@ export function App() {
                     className="form-input"
                     placeholder="https://exemplo.com/capa.jpg"
                     value={editCapaUrl}
-                    onChange={(e) => { setEditCapaUrl(e.target.value); setEditStatusSalvo('alterado'); }}
+                    onChange={(e) => { setEditCapaUrl(e.target.value); marcarEditorAlterado(); }}
                   />
                 </div>
 
@@ -925,7 +1007,7 @@ export function App() {
                     className="form-input"
                     placeholder="Cor hex (#f4ecd8) ou link de imagem"
                     value={editFundoUrl}
-                    onChange={(e) => { setEditFundoUrl(e.target.value); setEditStatusSalvo('alterado'); }}
+                    onChange={(e) => { setEditFundoUrl(e.target.value); marcarEditorAlterado(); }}
                   />
                 </div>
               </div>
@@ -933,7 +1015,7 @@ export function App() {
               {livroJaLancado && <div className="return-draft-card">
                 <h2>Voltar para rascunho</h2>
                 <p>O livro deixa de ser publicado e fica visível só para você. Seu texto será mantido.</p>
-                <button className="btn-secondary" disabled={voltandoRascunho || editStatusSalvo === 'salvando'} onClick={() => void voltarParaRascunho()}>{voltandoRascunho ? 'Salvando…' : 'Voltar para rascunho'}</button>
+                <button className="btn-secondary" disabled={voltandoRascunho || editStatusSalvo === 'salvando' || iaGerando} onClick={() => void voltarParaRascunho()}>{voltandoRascunho ? 'Salvando…' : 'Voltar para rascunho'}</button>
               </div>}
               {erroRascunho && <p role="alert" className="editor-draft-error">{erroRascunho}</p>}
             </div>
@@ -963,7 +1045,7 @@ export function App() {
                     texto: e.target.value,
                   };
                   setEditPaginas(novas);
-                  setEditStatusSalvo('alterado');
+                  marcarEditorAlterado();
                 }}
               />
 
@@ -977,6 +1059,7 @@ export function App() {
               </div>
             </section>
           </div>
+          </fieldset>
         </main>
       </div>
     );
@@ -1064,8 +1147,7 @@ export function App() {
               aria-label="Painel Admin"
               title="Painel Admin"
               onClick={async () => {
-                const pendentes = await listarContasPendentes();
-                const sessoes = await listarAtividadeUsuarios();
+                const [pendentes, sessoes] = await Promise.all([listarContasPendentes(), listarAtividadeUsuarios()]);
                 setContasPendentes(pendentes);
                 setSessoesAtividade(sessoes);
                 setMostrarModalAdmin(true);
@@ -1093,7 +1175,10 @@ export function App() {
           {abaAtual === 'perfil' && visaoAtiva === 'principal' && <div className="profile-menu" ref={menuPerfilRef}>
             <button className="btn-secondary" aria-label="Menu do perfil" aria-expanded={menuPerfilAberto} aria-controls="profile-menu-options" onClick={() => setMenuPerfilAberto((aberto) => !aberto)}><Menu size={22} /></button>
             {menuPerfilAberto && <div id="profile-menu-options" className="profile-menu-options">
-              <button className="btn-secondary" onClick={() => { setMenuPerfilAberto(false); setConfirmarSaida(true); }}><LogOut size={16} /> Sair</button>
+              <p className="profile-menu-caption">Sua conta</p>
+              <button className="profile-menu-item" onClick={() => void abrirLixeira()}><Trash2 size={18} strokeWidth={1.6} /><span>Lixeira</span><ChevronRight size={15} /></button>
+              <div className="profile-menu-divider" />
+              <button className="profile-menu-item profile-menu-exit" onClick={() => { setMenuPerfilAberto(false); setConfirmarSaida(true); }}><LogOut size={18} strokeWidth={1.6} /><span>Sair da conta</span></button>
             </div>}
           </div>}
 
@@ -1106,9 +1191,13 @@ export function App() {
 
       {/* Main Content Area */}
       <main className="main-view" ref={conteudoRolagem}>
-        {visaoAtiva === 'notificacoes' && <section>
-          <button className="btn-secondary back-button" onClick={() => setVisaoAtiva('principal')}><ChevronLeft size={16} /> Voltar</button>
+        {visaoAtiva === 'notificacoes' && <section className="notifications-page">
+          <header className="notifications-heading">
           <h1 className="section-title">Notificações</h1>
+          <button className="bare-close" aria-label="Fechar notificações" title="Fechar notificações" onClick={() => { setAbaAtual('dashboard'); setVisaoAtiva('principal'); }}><X size={24} strokeWidth={1.4} /></button>
+          </header>
+          {carregandoNotificacoes && <p role="status" className="panel-loading-status">Atualizando suas notificações…</p>}
+          {erroNotificacoes && <div role="alert" className="panel-load-error"><p>{erroNotificacoes}</p><button className="draft-select-all" onClick={() => void abrirNotificacoes()}>Tentar novamente</button></div>}
             {/* Notificações (quem seguiu, virou mútuo ou nova conta pendente) */}
             {notificacoes.length > 0 && (
               <div style={{ marginBottom: 28 }}>
@@ -1150,13 +1239,15 @@ export function App() {
               </div>
             )}
 
-          {notificacoes.length === 0 && <p style={{ color: 'var(--text-muted)' }}>Você ainda não tem notificações.</p>}
+          {!carregandoNotificacoes && !erroNotificacoes && notificacoes.length === 0 && <p style={{ color: 'var(--text-muted)' }}>Você ainda não tem notificações.</p>}
         </section>}
         {visaoAtiva === 'perfil_visitado' && perfilVisitado && <section className="profile-layout">
           <button className="btn-secondary back-button" aria-label="Voltar" title="Voltar" onClick={() => setVisaoAtiva('principal')}><ChevronLeft size={18} /></button>
           <ResumoPerfil perfil={perfilVisitado} />
-          {perfilVisitado.id !== usuario.id && <div className="profile-actions"><button className="btn-secondary" disabled={acaoSocial} onClick={() => seguindoPerfilVisitado ? setConfirmarDeixar(perfilVisitado) : alternarSeguindo(perfilVisitado)}>{seguindoPerfilVisitado ? 'Seguindo' : 'Seguir'}</button></div>}
+          {perfilVisitado.id !== usuario.id && <div className="profile-actions"><button className="btn-secondary" disabled={acaoSocial || carregandoPerfilVisitado || !!erroPerfilVisitado} onClick={() => seguindoPerfilVisitado ? setConfirmarDeixar(perfilVisitado) : alternarSeguindo(perfilVisitado)}>{seguindoPerfilVisitado ? 'Seguindo' : 'Seguir'}</button></div>}
           <div className="section-header"><h2 className="section-title">Obras lançadas</h2></div>
+          {carregandoPerfilVisitado && <p role="status" className="panel-loading-status">Carregando os livros deste perfil…</p>}
+          {erroPerfilVisitado && <div role="alert" className="panel-load-error"><p>{erroPerfilVisitado}</p><button className="draft-select-all" onClick={() => void abrirPerfilVisitado(perfilVisitado)}>Tentar novamente</button></div>}
           <div className="cards-grid">{livrosPerfilVisitado.map((livro) => <button className="book-card" key={livro.id} onClick={() => void abrirDetalhes(livro.id)}><div className="book-cover">{livro.capa_url ? <img src={livro.capa_url} alt="" /> : <BookOpen />}</div><div className="book-info"><div className="book-title">{livro.titulo}</div></div></button>)}</div>
         </section>}
         {/* 1. ABA DASHBOARD (US-09, US-16, US-17) */}
@@ -1173,7 +1264,13 @@ export function App() {
 
         {/* 3. ABA CRIAR / EDITAR (US-04, US-05, US-06, US-20) */}
         {visaoAtiva === 'principal' && abaAtual === 'criar_editar' && (
-          <MeusLivros rascunhos={meusRascunhos} publicados={meusLivrosLancados} novoLivro={abrirNovoLivro} editarLivro={abrirEditorLivro} />
+          <MeusLivros rascunhos={meusRascunhos} publicados={meusLivrosLancados} novoLivro={abrirNovoLivro} editarLivro={abrirEditorLivro} excluirRascunhos={async (ids) => {
+            const sucesso = await excluirRascunhosDefinitivamente(ids);
+            consultasAbas.current.limpar();
+            void atualizarLivrosAposExclusao().catch(console.error);
+            if (!sucesso) throw new Error('Alguns rascunhos não puderam ser excluídos. Confira a lista e tente novamente.');
+            setMeusRascunhos((atuais) => atuais.filter((livro) => !ids.includes(livro.id)));
+          }} />
         )}
 
         {/* 4. ABA PESQUISA (US-15, US-17) */}
@@ -1200,7 +1297,22 @@ export function App() {
         )}
       </main>
 
-      {conectandoIA && <JanelaConectarIA key={usuario.id} fechar={() => {
+      {lixeiraAberta && <LixeiraLivros livros={livrosNaLixeira} carregando={carregandoLixeira} erroCarregamento={erroLixeira} tentarNovamente={() => { consultasAbas.current.limpar(); void carregarLixeira(); }} fechar={() => { pedidoLixeira.current++; setLixeiraAberta(false); }} restaurar={async (livro) => {
+        if (!await restaurarDaLixeira(livro.id)) throw new Error('Não foi possível restaurar o livro.');
+        setLivrosNaLixeira((atuais) => atuais.filter((atual) => atual.id !== livro.id));
+        consultasAbas.current.limpar();
+        void atualizarLivrosAposExclusao().catch(console.error);
+      }} excluirPermanente={async (ids) => {
+        const sucesso = await excluirDaLixeiraDefinitivamente(ids);
+        consultasAbas.current.limpar();
+        if (!sucesso) { void carregarLixeira(); throw new Error('Não foi possível excluir todos os livros selecionados. A lista será atualizada.'); }
+        setLivrosNaLixeira((atuais) => atuais.filter((livro) => !ids.includes(livro.id)));
+        void atualizarLivrosAposExclusao().catch(console.error);
+      }} />}
+
+      {conectandoIA && <JanelaConectarIA key={usuario.id} criarHistoria={async () => {
+        if (await abrirNovoLivro()) { setIAIniciarAberto(true); setConectandoIA(false); }
+      }} fechar={() => {
         setConectandoIA(false);
         const url = new URL(window.location.href);
         url.searchParams.delete('mcp_authorize');

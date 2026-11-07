@@ -1,17 +1,18 @@
 export const provedores = ['openai', 'gemini', 'claude'] as const;
 export type Provedor = typeof provedores[number];
 
-export function validarPedido(valor: unknown): { provedor: Provedor; pedido: string } {
+export function validarPedido(valor: unknown): { provedor: Provedor; pedido: string; anterior?: string } {
   if (!valor || typeof valor !== 'object') throw new Error('Pedido inválido.');
-  const { provedor, pedido } = valor as Record<string, unknown>;
+  const { provedor, pedido, anterior } = valor as Record<string, unknown>;
   if (!provedores.includes(provedor as Provedor)) throw new Error('IA inválida.');
-  if (typeof pedido !== 'string' || !pedido.trim() || pedido.length > 6000) throw new Error('Descreva a história em até 6.000 caracteres.');
-  return { provedor: provedor as Provedor, pedido: pedido.trim() };
+  if (typeof pedido !== 'string' || !pedido.trim()) throw new Error('Descreva a história que você quer criar.');
+  if (anterior !== undefined && typeof anterior !== 'string') throw new Error('Trecho anterior inválido.');
+  return { provedor: provedor as Provedor, pedido: pedido.trim(), ...(anterior ? { anterior: anterior as string } : {}) };
 }
 
-export function requisicaoIA(provedor: Provedor, modelo: string, chave: string, pedido: string): { url: string; headers: Record<string, string>; body: Record<string, unknown> } {
+export function requisicaoIA(provedor: Provedor, modelo: string, chave: string, pedido: string, anterior?: string): { url: string; headers: Record<string, string>; body: Record<string, unknown> } {
   if (!/^[a-zA-Z0-9._-]+$/.test(modelo)) throw new Error('Modelo inválido na configuração do servidor.');
-  const instrucao = 'Escreva uma história em português baseada no pedido abaixo. Retorne somente o texto da história, sem explicações. Limite a história a aproximadamente 1200 palavras.\n\n' + pedido;
+  const instrucao = 'Escreva uma história em português baseada no pedido abaixo. Retorne somente o texto da história, sem explicações. Respeite a extensão pedida, sem impor um número fixo de palavras ou páginas. Para histórias longas, desenvolva a narrativa em partes: não resuma nem antecipe o final para caber em uma resposta.\n\nPEDIDO:\n' + pedido + (anterior ? '\n\nHISTÓRIA JÁ ESCRITA (contexto, não repita):\n' + anterior + '\n\nContinue a história exatamente de onde parou, completando eventual frase interrompida, sem repetir o trecho anterior nem adicionar prefácios.' : '');
   if (provedor === 'openai') return {
     url: 'https://api.openai.com/v1/responses',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${chave}` },
@@ -25,7 +26,7 @@ export function requisicaoIA(provedor: Provedor, modelo: string, chave: string, 
   return {
     url: `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent`,
     headers: { 'Content-Type': 'application/json', 'x-goog-api-key': chave },
-    body: { contents: [{ parts: [{ text: instrucao }] }], generationConfig: { maxOutputTokens: 4000 } },
+    body: { contents: [{ parts: [{ text: instrucao }] }], generationConfig: { maxOutputTokens: 8192 } },
   };
 }
 
@@ -39,7 +40,7 @@ export function extrairTextoIA(provedor: Provedor, resposta: any): string {
     texto = resposta.content?.filter((c: any) => c.type === 'text').map((c: any) => c.text).join('\n') ?? '';
   } else {
     const candidato = resposta.candidates?.[0];
-    if (candidato?.finishReason && candidato.finishReason !== 'STOP') throw new Error('A IA não concluiu a história. Reformule o pedido ou peça um texto mais curto.');
+    if (candidato?.finishReason && !['STOP', 'MAX_TOKENS'].includes(candidato.finishReason)) throw new Error('A IA não concluiu a história. Reformule o pedido.');
     texto = candidato?.content?.parts?.filter((p: any) => !p.thought).map((p: any) => p.text ?? '').join('\n') ?? '';
   }
   if (!texto.trim() || texto.length > 150000) throw new Error('A IA não retornou uma história válida.');

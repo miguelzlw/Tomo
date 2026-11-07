@@ -17,7 +17,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function preparar(reduzido = false, aguardando = false) {
+function preparar(reduzido = false) {
   vi.useFakeTimers();
   const body = { style: { overflow: 'auto' } };
   vi.stubGlobal('document', { body });
@@ -27,7 +27,7 @@ function preparar(reduzido = false, aguardando = false) {
   });
   const concluir = vi.fn();
   const prepararTela = vi.fn();
-  const html = renderToStaticMarkup(<EntradaLivro aguardando={aguardando} onPreparar={prepararTela} onConcluir={concluir} />);
+  const html = renderToStaticMarkup(<EntradaLivro onPreparar={prepararTela} onConcluir={concluir} />);
   return { body, concluir, prepararTela, html };
 }
 
@@ -42,7 +42,7 @@ it('renders a closed book and prevents background scrolling during entry', () =>
 
 it('finishes after opening and exit, and restores scrolling on unmount', () => {
   const { body, concluir } = preparar();
-  vi.advanceTimersByTime(3850);
+  vi.advanceTimersByTime(1900);
   expect(concluir).toHaveBeenCalledOnce();
   limparEfeitos.splice(0).forEach((limpar) => limpar());
   expect(body.style.overflow).toBe('auto');
@@ -57,27 +57,24 @@ it('skips motion once the response arrives for reduced motion', () => {
   expect(vi.getTimerCount()).toBe(0);
 });
 
-it('keeps the book visible for a slow authentication response', () => {
-  const { concluir, body } = preparar(false, true);
-  vi.advanceTimersByTime(20000);
+it('finishes within two seconds without waiting for network or dashboard data', () => {
+  const { concluir } = preparar();
+  vi.advanceTimersByTime(1899);
   expect(concluir).not.toHaveBeenCalled();
-  expect(body.style.overflow).toBe('hidden');
-});
-
-it('also waits for authentication in reduced motion mode', () => {
-  const { concluir } = preparar(true, true);
+  vi.advanceTimersByTime(1);
+  expect(concluir).toHaveBeenCalledOnce();
   vi.advanceTimersByTime(20000);
-  expect(concluir).not.toHaveBeenCalled();
+  expect(concluir).toHaveBeenCalledOnce();
 });
 
 it('mounts the destination before fading out so the login cannot flash underneath', () => {
   const { prepararTela, concluir } = preparar();
-  vi.advanceTimersByTime(3400);
+  vi.advanceTimersByTime(1500);
   expect(prepararTela).toHaveBeenCalledOnce();
   expect(concluir).not.toHaveBeenCalled();
   vi.advanceTimersByTime(49);
   expect(concluir).not.toHaveBeenCalled();
-  vi.advanceTimersByTime(401);
+  vi.advanceTimersByTime(351);
   expect(concluir).toHaveBeenCalledOnce();
 });
 

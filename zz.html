@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BRASA CLUB | Hamburgueria Artesanal</title>
+  
+  <!-- Bootstrap 5.3.8 CSS via CDN -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css">
+  
+  <!-- Google Fonts: Oswald (Títulos Condensados Diner) e Plus Jakarta Sans (Texto do Corpo) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    /* ==========================================================================
+       1. VARIÁVEIS E IDENTIDADE VISUAL (Papel Creme, Vermelho Brasa, Preto Carvão)
+       ========================================================================== */
+    :root {
+      --bg-cream: #F9F6F0;
+      --bg-cream-card: #FFFDF9;
+      --charcoal-black: #121212;
+      --ember-red: #D32F2F;
+      --ember-red-dark: #B71C1C;
+      --amber-gold: #FFB300;
+      --text-muted-custom: #5A5752;
+      --border-color: #E2DDD5;
+      --font-title: 'Oswald', sans-serif;
+      --font-body: 'Plus Jakarta Sans', sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-cream);
+      color: var(--charcoal-black);
+      font-family: var(--font-body);
+      overflow-x: hidden;
+    }
+
+    /* Tipografia de Estilo Diner Contemporâneo */
+    h1, h2, h3, h4, .font-diner {
+      font-family: var(--font-title);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* Customizações do Bootstrap para a identidade da marca */
+    .bg-charcoal { background-color: var(--charcoal-black) !important; }
+    .bg-cream { background-color: var(--bg-cream) !important; }
+    .text-ember { color: var(--ember-red) !important; }
+    .text-amber { color: var(--amber-gold) !important; }
+
+    .btn-ember {
+      background-color: var(--ember-red);
+      color: #FFF;
+      font-family: var(--font-title);
+      letter-spacing: 1px;
+      font-size: 1.1rem;
+      border: 2px solid var(--ember-red);
+      transition: all 0.2s ease;
+    }
+    .btn-ember:hover, .btn-ember:focus {
+      background-color: var(--ember-red-dark);
+      border-color: var(--ember-red-dark);
+      color: #FFF;
+      box-shadow: 0 4px 12px rgba(211, 47, 47, 0.3);
+    }
+
+    .btn-outline-charcoal {
+      border: 2px solid var(--charcoal-black);
+      color: var(--charcoal-black);
+      font-family: var(--font-title);
+    }
+    .btn-outline-charcoal:hover {
+      background-color: var(--charcoal-black);
+      color: var(--bg-cream);
+    }
+
+    /* Estilo para links de acessibilidade */
+    .skip-link {
+      position: absolute;
+      top: -40px;
+      left: 0;
+      background: var(--ember-red);
+      color: white;
+      padding: 8px;
+      z-index: 9999;
+      transition: top 0.2s;
+    }
+    .skip-link:focus { top: 0; }
+
+    /* Foco visível acessível */
+    :focus-visible {
+      outline: 3px solid var(--amber-gold) !important;
+      outline-offset: 2px;
+    }
+
+    /* ==========================================================================
+       2. SEÇÃO HERO & ANIMAÇÃO INTERATIVA DO HAMBÚRGUER (SCROLL STICKY)
+       ========================================================================== */
+    .hero-scroll-container {
+      height: 220vh; /* Espaço para rolagem fluida e convergência */
+      position: relative;
+    }
+
+    .hero-sticky-content {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      overflow: hidden;
+      background: radial-gradient(circle at center, #FFFDF9 0%, #F9F6F0 100%);
+    }
+
+    .burger-viewport {
+      position: relative;
+      width: 100%;
+      max-width: 380px;
+      height: 420px;
+      margin: 0 auto;
+    }
+
+    /* Camadas do Hambúrguer SVG posicionadas com transformações absolutas */
+    .burger-layer {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 320px;
+      will-change: transform;
+      transition: filter 0.2s ease;
+    }
+
+    /* Textos descritivos laterais sincronizados */
+    .ingredient-text-pill {
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 0.3s ease, transform 0.3s ease;
+      background: var(--charcoal-black);
+      color: var(--bg-cream);
+      padding: 6px 16px;
+      border-radius: 50px;
+      font-family: var(--font-title);
+      display: inline-block;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    }
+    .ingredient-text-pill.active {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ==========================================================================
+       3. CARDS DO CARDÁPIO & FILTROS
+       ========================================================================== */
+    .combo-card {
+      background-color: var(--bg-cream-card);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      height: 100%;
+    }
+    .combo-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+      border-color: var(--ember-red);
+    }
+
+    .badge-category {
+      background-color: var(--charcoal-black);
+      color: var(--amber-gold);
+      font-family: var(--font-title);
+      font-size: 0.85rem;
+      letter-spacing: 0.5px;
+    }
+
+    .meat-selector .btn-check:checked + .btn-outline-danger {
+      background-color: var(--ember-red);
+      color: white;
+      border-color: var(--ember-red);
+    }
+
+    /* Drawer do Carrinho Customizado */
+    .offcanvas-cart {
+      background-color: var(--bg-cream);
+      border-left: 2px solid var(--charcoal-black);
+    }
+
+    /* Respeita preferência de movimento reduzido */
+    @media (prefers-reduced-motion: reduce) {
+      .burger-layer, .ingredient-text-pill, .combo-card {
+        transition: none !important;
+        animation: none !important;
+      }
+      .hero-scroll-container { height: auto; }
+      .hero-sticky-content { position: relative; height: auto; padding: 4rem 0; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Link direto para acessibilidade por teclado -->
+  <a href="#cardapio" class="skip-link">Pular para o Cardápio</a>
+
+  <!-- ARIA Live Region para anúncios dinâmicos do carrinho -->
+  <div id="aria-announcer" class="visually-hidden" aria-live="polite"></div>
+
+  <!-- ==========================================================================
+       NAVBAR / CABEÇALHO
+       ========================================================================== -->
+  <nav class="navbar navbar-expand-lg bg-charcoal navbar-dark sticky-top shadow-sm">
+    <div class="container">
+      <a class="navbar-brand d-flex align-items-center gap-2" href="#">
+        <!-- Logo SVG Brasa -->
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#FFB300" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 3z"/>
+        </svg>
+        <span class="fs-3 fw-bold text-white font-diner">BRASA <span class="text-ember">CLUB</span></span>
+      </a>
+
+      <div class="d-flex align-items-center gap-3">
+        <a href="#cardapio" class="btn btn-sm btn-outline-light d-none d-sm-inline-block font-diner">Ver Cardápio</a>
+        
+        <!-- Botão do Carrinho -->
+        <button class="btn btn-ember position-relative d-flex align-items-center gap-2" 
+                type="button" 
+                data-bs-toggle="offcanvas" 
+                data-bs-target="#cartDrawer" 
+                aria-controls="cartDrawer" 
+                aria-label="Abrir carrinho de compras">
+          <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M0 1.5A.5.5 0 0 1 .5 1H2a.5.5 0 0 1 .485.379L2.89 3H14.5a.5.5 0 0 1 .491.592l-1.5 8A.5.5 0 0 1 13 12H4a.5.5 0 0 1-.491-.408L1.01 2H.5a.5.5 0 0 1-.5-.5zM3.102 4l1.313 7h8.17l1.313-7H3.102zM5 12a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm7 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/>
+          </svg>
+          <span class="d-none d-md-inline">CARRINHO</span>
+          <span id="cart-badge-count" class="badge bg-warning text-dark rounded-pill">0</span>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ==========================================================================
+       HERO - ANIMAÇÃO INTERATIVA DO HAMBÚRGUER (SCROLL DRIVEN)
+       ========================================================================== -->
+  <section class="hero-scroll-container" id="hero-scroll" aria-label="Apresentação dos ingredientes da Brasa Club">
+    <div class="hero-sticky-content">
+      <div class="container">
+        <div class="row align-items-center">
+          
+          <!-- Lado Esquerdo: Chamada de Impacto e Botão Direto -->
+          <div class="col-lg-5 mb-4 mb-lg-0 text-center text-lg-start">
+            <span class="badge bg-danger text-white mb-2 px-3 py-2 font-diner">ARTESANAL & DEFUMADO NA BRASA</span>
+            <h1 class="display-3 fw-bold text-uppercase mb-3">O VERDADEIRO SABOR DA BRASA</h1>
+            <p class="lead text-muted-custom mb-4">Role a página para ver o nosso hambúrguer de 3 carnes se montar camada por camada. Sabor defumado inconfundível.</p>
+            <div class="d-flex gap-3 justify-content-center justify-content-lg-start">
+              <a href="#cardapio" class="btn btn-ember btn-lg px-4 shadow">VER CARDÁPIO (22 COMBOS)</a>
+            </div>
+          </div>
+
+          <!-- Lado Direito: Hambúrguer Montável SVG + Textos de Suporte -->
+          <div class="col-lg-7 position-relative">
+            
+            <div class="burger-viewport" id="burgerContainer">
+              <!-- Camada 1: Topo do Pão (com gergelim) -->
+              <div class="burger-layer" id="layer-bun-top" style="z-index: 7;">
+                <svg viewBox="0 0 200 80" class="w-100" drop-shadow>
+                  <path d="M 10 70 Q 100 0 190 70 Z" fill="#D48B38" stroke="#8C531B" stroke-width="2"/>
+                  <!-- Sementes de Gergelim -->
+                  <circle cx="60" cy="40" r="2.5" fill="#FFF8E7"/>
+                  <circle cx="90" cy="25" r="2.5" fill="#FFF8E7"/>
+                  <circle cx="110" cy="30" r="2.5" fill="#FFF8E7"/>
+                  <circle cx="140" cy="45" r="2.5" fill="#FFF8E7"/>
+                  <circle cx="125" cy="18" r="2.5" fill="#FFF8E7"/>
+                  <circle cx="75" cy="22" r="2.5" fill="#FFF8E7"/>
+                </svg>
+              </div>
+
+              <!-- Camada 2: Exatamente 2 Fatias de Bacon Crispy -->
+              <div class="burger-layer" id="layer-bacon" style="z-index: 6;">
+                <svg viewBox="0 0 200 40" class="w-100">
+                  <!-- Fatia de Bacon 1 -->
+                  <path d="M 20 15 Q 40 5 60 15 T 100 15 T 140 15 T 180 15" fill="none" stroke="#8B0000" stroke-width="8" stroke-linecap="round"/>
+                  <path d="M 20 15 Q 40 5 60 15 T 100 15 T 140 15 T 180 15" fill="none" stroke="#D32F2F" stroke-width="3" stroke-linecap="round"/>
+                  <!-- Fatia de Bacon 2 -->
+                  <path d="M 25 25 Q 50 35 75 25 T 125 25 T 175 25" fill="none" stroke="#8B0000" stroke-width="8" stroke-linecap="round"/>
+                  <path d="M 25 25 Q 50 35 75 25 T 125 25 T 175 25" fill="none" stroke="#D32F2F" stroke-width="3" stroke-linecap="round"/>
+                </svg>
+              </div>
+
+              <!-- Camada 3: 1 Fatia de Queijo Cheddar Derretido -->
+              <div class="burger-layer" id="layer-cheese" style="z-index: 5;">
+                <svg viewBox="0 0 200 35" class="w-100">
+                  <path d="M 15 5 L 185 5 L 175 25 L 140 12 L 100 30 L 60 10 L 25 25 Z" fill="#FFB300" stroke="#FF8F00" stroke-width="1.5"/>
+                </svg>
+              </div>
+
+              <!-- Camada 4: Discos de Carne (Exatamente 3 Unidades) -->
+              <div class="burger-layer" id="layer-meat-1" style="z-index: 4;">
+                <svg viewBox="0 0 200 35" class="w-100">
+                  <rect x="15" y="5" width="170" height="22" rx="10" fill="#3E2723" stroke="#1B0000" stroke-width="2"/>
+                  <!-- Marcas de Grelha -->
+                  <line x1="40" y1="5" x2="50" y2="27" stroke="#21100B" stroke-width="3"/>
+                  <line x1="80" y1="5" x2="90" y2="27" stroke="#21100B" stroke-width="3"/>
+                  <line x1="120" y1="5" x2="130" y2="27" stroke="#21100B" stroke-width="3"/>
+                  <line x1="160" y1="5" x2="170" y2="27" stroke="#21100B" stroke-width="3"/>
+                </svg>
+              </div>
+              <div class="burger-layer" id="layer-meat-2" style="z-index: 3;">
+                <svg viewBox="0 0 200 35" class="w-100">
+                  <rect x="15" y="5" width="170" height="22" rx="10" fill="#4E342E" stroke="#1B0000" stroke-width="2"/>
+                </svg>
+              </div>
+              <div class="burger-layer" id="layer-meat-3" style="z-index: 2;">
+                <svg viewBox="0 0 200 35" class="w-100">
+                  <rect x="15" y="5" width="170" height="22" rx="10" fill="#3E2723" stroke="#1B0000" stroke-width="2"/>
+                </svg>
+              </div>
+
+              <!-- Camada 5: Base do Pão -->
+              <div class="burger-layer" id="layer-bun-bottom" style="z-index: 1;">
+                <svg viewBox="0 0 200 40" class="w-100">
+                  <path d="M 15 5 L 185 5 Q 185 35 100 35 Q 15 35 15 5 Z" fill="#D48B38" stroke="#8C531B" stroke-width="2"/>
+                </svg>
+              </div>
+            </div>
+
+            <!-- Frases dinâmicas sobre os ingredientes acompanhando a rolagem -->
+            <div class="text-center mt-3">
+              <span id="ingredient-status" class="ingredient-text-pill active">
+                Role para baixo para selar os ingredientes!
+              </span>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================================
+       SEÇÃO SOBRE A MARCA & DIFERENCIAIS
+       ========================================================================== -->
+  <section class="py-5 bg-charcoal text-white">
+    <div class="container">
+      <div class="row align-items-center g-4">
+        <div class="col-md-6">
+          <h2 class="display-5 text-ember mb-3">RESPEITO À TRADIÇÃO DA BRASA</h2>
+          <p class="text-light lead">No BRASA CLUB, nossos hambúrgueres são preparados em grelhas de carvão vegetal de alta temperatura, garantindo a crosta perfeita e o sabor defumado autêntico em cada mordida.</p>
+          <p class="text-secondary">Utilizamos blend de carnes nobres moídas diariamente, pães de fermentação natural selados na manteiga e molhos artesanais exclusivos.</p>
+        </div>
+        <div class="col-md-6">
+          <div class="row g-3 text-center">
+            <div class="col-6">
+              <div class="p-3 border border-secondary rounded">
+                <div class="fs-1 text-amber font-diner">100%</div>
+                <div class="text-uppercase small">Angus Certificado</div>
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="p-3 border border-secondary rounded">
+                <div class="fs-1 text-amber font-diner">DEFUMADO</div>
+                <div class="text-uppercase small">Em Carvão Puríssimo</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================================
+       CATÁLOGO DE CARDÁPIO (22 COMBOS) COM FILTROS E BUSCA
+       ========================================================================== -->
+  <main class="py-5" id="cardapio">
+    <div class="container">
+      
+      <div class="text-center mb-5">
+        <h2 class="display-4 fw-bold text-uppercase">NOSSO CARDÁPIO DE COMBOS</h2>
+        <p class="text-muted-custom fs-5">Todos os combos acompanham batata rústica crocante e bebida à sua escolha.</p>
+      </div>
+
+      <!-- Barra de Controle: Filtros por Categoria e Busca -->
+      <div class="row g-3 mb-4 align-items-center">
+        <!-- Campo de Busca -->
+        <div class="col-md-5">
+          <label for="search-input" class="visually-hidden">Buscar combo por nome ou ingrediente</label>
+          <input type="text" id="search-input" class="form-control form-control-lg border-dark" placeholder="Buscar por nome ou ingrediente...">
+        </div>
+
+        <!-- Filtros por Categoria -->
+        <div class="col-md-7 d-flex gap-2 flex-wrap justify-content-md-end" id="category-filters" role="group" aria-label="Filtrar por Categoria">
+          <button type="button" class="btn btn-dark filter-btn active" data-cat="ALL">TODOS (22)</button>
+          <button type="button" class="btn btn-outline-dark filter-btn" data-cat="Clássicos">CLÁSSICOS</button>
+          <button type="button" class="btn btn-outline-dark filter-btn" data-cat="Especiais">ESPECIAIS</button>
+          <button type="button" class="btn btn-outline-dark filter-btn" data-cat="Smash">SMASH</button>
+          <button type="button" class="btn btn-outline-dark filter-btn" data-cat="Frango/Veg">FRANGO & VEG</button>
+        </div>
+      </div>
+
+      <!-- Container do Grid de Produtos (Renderizado via JS) -->
+      <div class="row g-4" id="combos-grid">
+        <!-- Inserido dinamicamente pelo JavaScript -->
+      </div>
+
+      <!-- Estado Vazio para Busca/Filtro Sem Resultados -->
+      <div id="empty-state" class="text-center py-5 d-none">
+        <svg width="64" height="64" fill="currentColor" class="text-muted mb-3" viewBox="0 0 16 16" aria-hidden="true">
+          <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+        </svg>
+        <h3 class="font-diner">NENHUM COMBO ENCONTRADO</h3>
+        <p class="text-muted">Tente ajustar sua busca ou selecionar outra categoria.</p>
+        <button class="btn btn-ember" id="btn-reset-filters">LIMPAR FILTROS</button>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- ==========================================================================
+       SEÇÃO DE INFORMAÇÕES DE ALÉRGICOS & FAQ
+       ========================================================================== -->
+  <section class="py-5 bg-white border-top border-bottom">
+    <div class="container">
+      <div class="row g-4">
+        
+        <!-- Informações de Alergênicos -->
+        <div class="col-lg-6">
+          <div class="p-4 bg-cream rounded border border-warning">
+            <h3 class="text-ember mb-3">⚠️ INFORMAÇÕES SOBRE ALERGÊNICOS</h3>
+            <p class="small text-muted-custom">Prezamos pela transparência absoluta. Nossos produtos contêm ou podem conter traços dos seguintes ingredientes:</p>
+            <ul class="small mb-0 text-muted-custom">
+              <li><strong>Glúten:</strong> Presente nos pães tradicionais e empanados de frango. Opção de pão sem glúten sob consulta.</li>
+              <li><strong>Lactose e Derivados de Leite:</strong> Queijos cheddar, prato, guda e molhos à base de maionese caseira.</li>
+              <li><strong>Ovos e Soja:</strong> Utilizados no preparo de molhos especiais e empanamento.</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Pergunta Frequentes (FAQ) Accordion Bootstrap -->
+        <div class="col-lg-6">
+          <h3 class="font-diner mb-3">PERGUNTAS FREQUENTES</h3>
+          <div class="accordion" id="faqAccordion">
+            
+            <div class="accordion-item">
+              <h2 class="accordion-header" id="headingOne">
+                <button class="accordion-button font-diner" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="true" aria-controls="collapseOne">
+                  Como funciona o adicional de carnes nos combos?
+                </button>
+              </h2>
+              <div id="collapseOne" class="accordion-collapse collapse show" aria-labelledby="headingOne" data-bs-parent="#faqAccordion">
+                <div class="accordion-body small">
+                  Você pode customizar qualquer combo selecionando 1, 2 ou 3 discos de carne Angus (160g cada). Cada carne adicional acrescenta R$ 8,00 ao valor base do combo.
+                </div>
+              </div>
+            </div>
+
+            <div class="accordion-item">
+              <h2 class="accordion-header" id="headingTwo">
+                <button class="accordion-button collapsed font-diner" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
+                  Quais são as opções de acompanhamento e bebida?
+                </button>
+              </h2>
+              <div id="collapseTwo" class="accordion-collapse collapse" aria-labelledby="headingTwo" data-bs-parent="#faqAccordion">
+                <div class="accordion-body small">
+                  Todos os 22 combos já incluem Batata Rústica da Casa com sal de parrillia e alecrim. A bebida é escolhida por você diretamente no card de cada produto antes de adicionar ao carrinho.
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================================
+       RODAPÉ (INFORMAÇÕES INSTITUCIONAIS FICÇÃO ACADÊMICA)
+       ========================================================================== -->
+  <footer class="bg-charcoal text-white py-4 border-top border-danger">
+    <div class="container text-center text-md-start">
+      <div class="row align-items-center">
+        <div class="col-md-6 mb-3 mb-md-0">
+          <h4 class="font-diner text-ember mb-1">BRASA CLUB - BURGER & BEER</h4>
+          <p class="small text-secondary mb-0">Projeto Acadêmico para a disciplina de Desenvolvimento de Interfaces. Todos os dados, preços e produtos são estritamente fictícios para fins demonstrativos.</p>
+        </div>
+        <div class="col-md-6 text-md-end text-secondary small">
+          <p class="mb-0">© 2026 BRASA CLUB. Desenvolvido com HTML, CSS Vanilla e JS Vanilla.</p>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ==========================================================================
+       DRAWER / MODAL DO CARRINHO DE COMPRAS (BOOTSTRAP OFFCANVAS)
+       ========================================================================== -->
+  <div class="offcanvas offcanvas-end offcanvas-cart" tabindex="-1" id="cartDrawer" aria-labelledby="cartDrawerLabel">
+    <div class="offcanvas-header bg-charcoal text-white">
+      <h5 class="offcanvas-title font-diner text-amber" id="cartDrawerLabel">SEU CARRINHO BRASA</h5>
+      <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Fechar Carrinho"></button>
+    </div>
+    
+    <div class="offcanvas-body d-flex flex-column">
+      
+      <!-- Lista de Itens no Carrinho -->
+      <div id="cart-items-container" class="flex-grow-1 overflow-auto pe-1">
+        <!-- Renderizado via JavaScript -->
+      </div>
+
+      <!-- Resumo de Valores e Conclusão -->
+      <div class="border-top pt-3 mt-3">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <span class="fs-5 font-diner">TOTAL DO PEDIDO:</span>
+          <span class="fs-3 fw-bold text-ember font-diner" id="cart-total-price">R$ 0,00</span>
+        </div>
+        <p class="small text-muted mb-3">* Pedido e checkout totalmente simulados para fins acadêmicos. Nenhum dado de pagamento é solicitado.</p>
+        <button class="btn btn-ember w-100 py-2 font-diner fs-5" id="btn-checkout">CONCLUIR PEDIDO SIMULADO</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Bootstrap 5.3.8 JS Bundle com Popper -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+
+  <!-- ==========================================================================
+       LÓGICA JAVASCRIPT VANILLA (DADOS, RENDER, ANIMAÇÃO E CARRINHO)
+       ========================================================================== -->
+  <script>
+    /* --------------------------------------------------------------------------
+       1. BASE DE DADOS DOS 22 COMBOS
+       -------------------------------------------------------------------------- */
+    const COMBOS_DATA = [
+      { id: 1, name: "Combo Brasa Supreme", category: "Especiais", basePrice: 42.00, desc: "Hambúrguer com molho especial de pimenta defumada, bacon crocante e cheddar duplo.", imgSvg: "burger" },
+      { id: 2, name: "Combo Bacon Cheddar Melt", category: "Clássicos", basePrice: 38.00, desc: "Cheddar cremoso em abundância, 2 fatias grossas de bacon artesanal e cebola caramelizada.", imgSvg: "burger" },
+      { id: 3, name: "Combo Smash Double Crispy", category: "Smash", basePrice: 32.00, desc: "Duas carnes smash ultra prensadas com crostinha perfeita, queijo prato e picles artesanal.", imgSvg: "burger" },
+      { id: 4, name: "Combo Smokey BBQ Club", category: "Especiais", basePrice: 40.00, desc: "Molho BBQ defumado na casa, onion rings crocantes e queijo gouda derretido.", imgSvg: "burger" },
+      { id: 5, name: "Combo Classic Cheese", category: "Clássicos", basePrice: 30.00, desc: "O clássico imbatível: hambúrguer macio, queijo prato derretido, alface, tomate e maionese.", imgSvg: "burger" },
+      { id: 6, name: "Combo Monster Brasa", category: "Especiais", basePrice: 48.00, desc: "Para fome monstruosa: bacon em dobro, ovo frito no ponto, queijo cheddar e molho especial.", imgSvg: "burger" },
+      { id: 7, name: "Combo Chicken Crispy Club", category: "Frango/Veg", basePrice: 34.00, desc: "Sobrecoxa de frango empanada super crocante, alface americana e maionese verde.", imgSvg: "burger" },
+      { id: 8, name: "Combo Veggie Futuro Grill", category: "Frango/Veg", basePrice: 36.00, desc: "Hambúrguer vegetal grelhado na brasa, queijo vegano, vinagrete especial e rúcula.", imgSvg: "burger" },
+      { id: 9, name: "Combo Smash Onion Oklahoma", category: "Smash", basePrice: 31.00, desc: "Carne prensada com finas fatias de cebola roxa adocicada e cheddar americano.", imgSvg: "burger" },
+      { id: 10, name: "Combo Gorgonzola & Mel", category: "Especiais", basePrice: 44.00, desc: "Creme artesanal de queijo gorgonzola, mel puro de florada e nozes picadas.", imgSvg: "burger" },
+      { id: 11, name: "Combo Pepperoni Blast", category: "Especiais", basePrice: 41.00, desc: "Fatias de pepperoni tostado, queijo mussarela derretido e molho de tomate rústico.", imgSvg: "burger" },
+      { id: 12, name: "Combo Trufado Gold", category: "Especiais", basePrice: 49.00, desc: "Maionese artesanal de trufas brancas, queijo brie derretido e cogumelos salteados.", imgSvg: "burger" },
+      { id: 13, name: "Combo Smash Jalapeño Fire", category: "Smash", basePrice: 33.00, desc: "Pimentas jalapeños em conserva, queijo pepper jack e molho levemente picante.", imgSvg: "burger" },
+      { id: 14, name: "Combo Costela Premium", category: "Clássicos", basePrice: 43.00, desc: "Hambúrguer de costela Angus 100%, queijo provolone e molho chimichurri fresco.", imgSvg: "burger" },
+      { id: 15, name: "Combo Chicken Spicy", category: "Frango/Veg", basePrice: 35.00, desc: "Frango empanado com molho de pimenta sriracha, salada coleslaw e picles.", imgSvg: "burger" },
+      { id: 16, name: "Combo Veggie Cogumelos", category: "Frango/Veg", basePrice: 37.00, desc: "Blend vegetal de shimeji e paris, queijo emmental e maionese de ervas.", imgSvg: "burger" },
+      { id: 17, name: "Combo Smash Triple Classic", category: "Smash", basePrice: 36.00, desc: "Tres carnes smash ultra finas com triplo cheddar e maionese tradicional da casa.", imgSvg: "burger" },
+      { id: 18, name: "Combo Picanha Grill", category: "Clássicos", basePrice: 46.00, desc: "Hambúrguer artesanal de picanha, alho confitado e queijo coalho grelhado.", imgSvg: "burger" },
+      { id: 19, name: "Combo Dulce & Bacon", category: "Especiais", basePrice: 39.00, desc: "Geleia artesanal de pimenta com bacon crocante e queijo cream cheese.", imgSvg: "burger" },
+      { id: 20, name: "Combo Catupiry Original", category: "Clássicos", basePrice: 37.00, desc: "Verdadeiro requeijão Catupiry empanado e frito com bacon e alho frito.", imgSvg: "burger" },
+      { id: 21, name: "Combo Smash Bacon Jam", category: "Smash", basePrice: 34.00, desc: "Geleia de bacon reduzida no whisky, duplo cheddar e pão de brioche tostado.", imgSvg: "burger" },
+      { id: 22, name: "Combo Brasa Salada Special", category: "Clássicos", basePrice: 31.00, desc: "Blend da casa com alce americana, tomate fresco, cebola roxa e molho verde.", imgSvg: "burger" }
+    ];
+
+    const BEVERAGES = ["Refrigerante Guaraná 350ml", "Refrigerante Cola 350ml", "Suco Natural de Laranja 400ml", "Água Mineral C/ Gás 500ml"];
+
+    /* Estado Global do Carrinho */
+    let cart = [];
+
+    /* --------------------------------------------------------------------------
+       2. ANIMAÇÃO DE ROLAGEM (SCROLL DRIVEN BURGER CONVERGENCE)
+       -------------------------------------------------------------------------- */
+    function initBurgerScrollAnimation() {
+      const container = document.getElementById('hero-scroll');
+      const bunTop = document.getElementById('layer-bun-top');
+      const bacon = document.getElementById('layer-bacon');
+      const cheese = document.getElementById('layer-cheese');
+      const meat1 = document.getElementById('layer-meat-1');
+      const meat2 = document.getElementById('layer-meat-2');
+      const meat3 = document.getElementById('layer-meat-3');
+      const bunBottom = document.getElementById('layer-bun-bottom');
+      const statusText = document.getElementById('ingredient-status');
+
+      if (!container || !bunTop) return;
+
+      // Respeita preferência por movimento reduzido
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        // Se movimento reduzido, posiciona hambúrguer montado
+        bunTop.style.transform = 'translate(-50%, 40px)';
+        bacon.style.transform = 'translate(-50%, 80px)';
+        cheese.style.transform = 'translate(-50%, 105px)';
+        meat1.style.transform = 'translate(-50%, 120px)';
+        meat2.style.transform = 'translate(-50%, 135px)';
+        meat3.style.transform = 'translate(-50%, 150px)';
+        bunBottom.style.transform = 'translate(-50%, 170px)';
+        statusText.textContent = "Hambúrguer Brasa Club completo com 3 carnes e bacon!";
+        return;
+      }
+
+      function updatePositions() {
+        const rect = container.getBoundingClientRect();
+        const totalHeight = container.offsetHeight - window.innerHeight;
+        // Progresso de 0 (topo) a 1 (fim da rolagem)
+        let progress = -rect.top / totalHeight;
+        progress = Math.max(0, Math.min(1, progress));
+
+        // Interpolação de posições Y para convergência progressiva
+        const topY = 0 + progress * 70;
+        const baconY = 60 + progress * 35;
+        const cheeseY = 120 + progress * 0;
+        const meat1Y = 180 + progress * (-40);
+        const meat2Y = 240 + progress * (-80);
+        const meat3Y = 300 + progress * (-120);
+        const bottomY = 360 + progress * (-160);
+
+        bunTop.style.transform = `translate(-50%, ${topY}px)`;
+        bacon.style.transform = `translate(-50%, ${baconY}px)`;
+        cheese.style.transform = `translate(-50%, ${cheeseY}px)`;
+        meat1.style.transform = `translate(-50%, ${meat1Y}px)`;
+        meat2.style.transform = `translate(-50%, ${meat2Y}px)`;
+        meat3.style.transform = `translate(-50%, ${meat3Y}px)`;
+        bunBottom.style.transform = `translate(-50%, ${bottomY}px)`;
+
+        // Atualiza legenda explicativa dinâmica
+        if (progress < 0.2) {
+          statusText.textContent = "Pão com gergelim crocante selado na manteiga";
+        } else if (progress < 0.4) {
+          statusText.textContent = "Exatamente 2 fatias de bacon artesanal crocante";
+        } else if (progress < 0.6) {
+          statusText.textContent = "1 fatia de queijo cheddar em fusão perfeita";
+        } else if (progress < 0.85) {
+          statusText.textContent = "3 discos de carne Angus grelhados na brasa viva";
+        } else {
+          statusText.textContent = "¡Hambúrguer completo e selado com perfeição!";
+        }
+      }
+
+      // Utiliza requestAnimationFrame para fluidez e performance
+      let ticking = false;
+      window.addEventListener('scroll', () => {
+        if (!ticking) {
+          window.requestAnimationFrame(() => {
+            updatePositions();
+            ticking = false;
+          });
+          ticking = true;
+        }
+      });
+      updatePositions();
+    }
+
+    /* --------------------------------------------------------------------------
+       3. RENDERIZAÇÃO DO CARDÁPIO DE COMBOS
+       -------------------------------------------------------------------------- */
+    function renderMenu(items) {
+      const grid = document.getElementById('combos-grid');
+      const emptyState = document.getElementById('empty-state');
+      grid.innerHTML = '';
+
+      if (items.length === 0) {
+        emptyState.classList.remove('d-none');
+        return;
+      } else {
+        emptyState.classList.add('d-none');
+      }
+
+      items.forEach(combo => {
+        const col = document.createElement('div');
+        col.className = 'col-12 col-md-6 col-lg-4';
+
+        // Opções de bebidas formatadas em <option>
+        const bevOptions = BEVERAGES.map((b, idx) => `<option value="${b}">${b}</option>`).join('');
+
+        col.innerHTML = `
+          <div class="combo-card p-3 d-flex flex-column">
+            <!-- Header do Card -->
+            <div class="d-flex justify-content-between align-items-start mb-2">
+              <span class="badge badge-category rounded-1 px-2 py-1">${combo.category}</span>
+              <span class="fw-bold fs-5 text-ember font-diner" id="price-display-${combo.id}">
+                R$ ${combo.basePrice.toFixed(2).replace('.', ',')}
+              </span>
+            </div>
+
+            <!-- Ilustração SVG Local do Combo -->
+            <div class="bg-light rounded text-center p-3 mb-3 border">
+              <svg width="100" height="70" viewBox="0 0 200 140" fill="none" aria-hidden="true">
+                <!-- Ícone Hambúrguer + Batata Rústica + Bebida -->
+                <path d="M20 70 Q 60 30 100 70 Z" fill="#D48B38"/>
+                <rect x="25" y="70" width="70" height="8" rx="3" fill="#3E2723"/>
+                <path d="M20 80 L 100 80 Q 60 100 20 80 Z" fill="#D48B38"/>
+                <!-- Batata -->
+                <path d="M120 40 L130 90 L160 90 L170 40 Z" fill="#D32F2F"/>
+                <rect x="125" y="20" width="8" height="30" fill="#FFB300" transform="rotate(-10 125 20)"/>
+                <rect x="140" y="15" width="8" height="35" fill="#FFB300"/>
+                <rect x="152" y="22" width="8" height="28" fill="#FFB300" transform="rotate(12 152 22)"/>
+              </svg>
+            </div>
+
+            <h3 class="h4 font-diner text-uppercase mb-1">${combo.name}</h3>
+            <p class="small text-muted-custom flex-grow-1 mb-3">${combo.desc}</p>
+            
+            <p class="small fw-semibold mb-2 text-dark">Acompanha Batata Rústica + Bebida inclusa</p>
+
+            <!-- Seletor de Carnes (1, 2 ou 3 carnes, limite máximo 3) -->
+            <div class="mb-3">
+              <label class="form-label small fw-bold mb-1">Quantidade de carnes:</label>
+              <div class="btn-group w-100 meat-selector" role="group" aria-label="Selecione quantidade de carnes">
+                <input type="radio" class="btn-check" name="meats-${combo.id}" id="meat1-${combo.id}" value="1" checked onchange="updateComboPrice(${combo.id}, ${combo.basePrice})">
+                <label class="btn btn-sm btn-outline-danger" for="meat1-${combo.id}">1 Carne</label>
+
+                <input type="radio" class="btn-check" name="meats-${combo.id}" id="meat2-${combo.id}" value="2" onchange="updateComboPrice(${combo.id}, ${combo.basePrice})">
+                <label class="btn btn-sm btn-outline-danger" for="meat2-${combo.id}">2 Carnes (+R$8)</label>
+
+                <input type="radio" class="btn-check" name="meats-${combo.id}" id="meat3-${combo.id}" value="3" onchange="updateComboPrice(${combo.id}, ${combo.basePrice})">
+                <label class="btn btn-sm btn-outline-danger" for="meat3-${combo.id}">3 Carnes (+R$16)</label>
+              </div>
+            </div>
+
+            <!-- Seletor de Bebida -->
+            <div class="mb-3">
+              <label for="bev-${combo.id}" class="form-label small fw-bold mb-1">Escolha sua bebida:</label>
+              <select class="form-select form-select-sm border-dark" id="bev-${combo.id}">
+                ${bevOptions}
+              </select>
+            </div>
+
+            <!-- Botão Adicionar -->
+            <button class="btn btn-ember w-100 font-diner py-2" onclick="addToCartHandler(${combo.id})">
+              ADICIONAR AO CARRINHO
+            </button>
+          </div>
+        `;
+        grid.appendChild(col);
+      });
+    }
+
+    /* Atualização visual dinâmica do preço do combo conforme número de carnes */
+    function updateComboPrice(comboId, basePrice) {
+      const selectedMeat = parseInt(document.querySelector(`input[name="meats-${comboId}"]:checked`).value);
+      const extraPrice = (selectedMeat - 1) * 8.00;
+      const totalPrice = basePrice + extraPrice;
+      const display = document.getElementById(`price-display-${comboId}`);
+      if (display) {
+        display.textContent = `R$ ${totalPrice.toFixed(2).replace('.', ',')}`;
+      }
+    }
+
+    /* --------------------------------------------------------------------------
+       4. LÓGICA DO CARRINHO DE COMPRAS
+       -------------------------------------------------------------------------- */
+    function addToCartHandler(comboId) {
+      const combo = COMBOS_DATA.find(c => c.id === comboId);
+      if (!combo) return;
+
+      const selectedMeat = parseInt(document.querySelector(`input[name="meats-${comboId}"]:checked`).value);
+      const selectedBev = document.getElementById(`bev-${comboId}`).value;
+      const unitPrice = combo.basePrice + ((selectedMeat - 1) * 8.00);
+
+      // Chave única para agrupar itens idênticos (mesmo combo, carnes e bebida)
+      const itemKey = `${comboId}-${selectedMeat}-${selectedBev}`;
+      const existingItem = cart.find(item => item.key === itemKey);
+
+      if (existingItem) {
+        existingItem.quantity += 1;
+      } else {
+        cart.push({
+          key: itemKey,
+          comboId: combo.id,
+          name: combo.name,
+          meats: selectedMeat,
+          beverage: selectedBev,
+          price: unitPrice,
+          quantity: 1
+        });
+      }
+
+      updateCartUI();
+      announceAccessibility(`${combo.name} adicionado ao carrinho!`);
+
+      // Abrir automaticamente o offcanvas/drawer do carrinho
+      const cartDrawerEl = document.getElementById('cartDrawer');
+      const bsOffcanvas = bootstrap.Offcanvas.getInstance(cartDrawerEl) || new bootstrap.Offcanvas(cartDrawerEl);
+      bsOffcanvas.show();
+    }
+
+    function updateCartQuantity(key, delta) {
+      const item = cart.find(i => i.key === key);
+      if (!item) return;
+
+      item.quantity += delta;
+      if (item.quantity <= 0) {
+        cart = cart.filter(i => i.key !== key);
+      }
+      updateCartUI();
+    }
+
+    function removeFromCart(key) {
+      cart = cart.filter(i => i.key !== key);
+      updateCartUI();
+      announceAccessibility("Item removido do carrinho.");
+    }
+
+    function updateCartUI() {
+      const container = document.getElementById('cart-items-container');
+      const badgeCount = document.getElementById('cart-badge-count');
+      const totalPriceEl = document.getElementById('cart-total-price');
+
+      // Atualiza badge de quantidade total de itens
+      const totalItemsCount = cart.reduce((sum, i) => sum + i.quantity, 0);
+      badgeCount.textContent = totalItemsCount;
+
+      // Atualiza lista de itens
+      if (cart.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-5">
+            <p class="text-muted font-diner fs-5 mb-0">SEU CARRINHO ESTÁ VAZIO</p>
+            <small class="text-secondary">Adicione combos do cardápio para saborear a verdadeira brasa.</small>
+          </div>
+        `;
+        totalPriceEl.textContent = "R$ 0,00";
+        return;
+      }
+
+      let totalSum = 0;
+      container.innerHTML = '';
+
+      cart.forEach(item => {
+        const itemTotal = item.price * item.quantity;
+        totalSum += itemTotal;
+
+        const itemEl = document.createElement('div');
+        itemEl.className = 'p-3 mb-2 bg-white rounded border shadow-sm';
+        itemEl.innerHTML = `
+          <div class="d-flex justify-content-between align-items-start mb-1">
+            <h4 class="h6 font-diner mb-0 text-uppercase">${item.name}</h4>
+            <button class="btn btn-sm text-danger p-0 border-0" onclick="removeFromCart('${item.key}')" aria-label="Remover ${item.name}">
+              ✕
+            </button>
+          </div>
+          <div class="small text-muted mb-2">
+            <div>• ${item.meats} carne(s) Angus</div>
+            <div>• ${item.beverage}</div>
+            <div>• Batata Rústica inclusa</div>
+          </div>
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="btn-group btn-group-sm" role="group" aria-label="Ajustar quantidade">
+              <button class="btn btn-outline-dark" onclick="updateCartQuantity('${item.key}', -1)">-</button>
+              <span class="btn btn-light disabled px-3 fw-bold text-dark">${item.quantity}</span>
+              <button class="btn btn-outline-dark" onclick="updateCartQuantity('${item.key}', 1)">+</button>
+            </div>
+            <span class="fw-bold text-ember font-diner">R$ ${itemTotal.toFixed(2).replace('.', ',')}</span>
+          </div>
+        `;
+        container.appendChild(itemEl);
+      });
+
+      totalPriceEl.textContent = `R$ ${totalSum.toFixed(2).replace('.', ',')}`;
+    }
+
+    /* Utilitário para leitores de tela */
+    function announceAccessibility(message) {
+      const announcer = document.getElementById('aria-announcer');
+      if (announcer) announcer.textContent = message;
+    }
+
+    /* --------------------------------------------------------------------------
+       5. CONTROLES DE FILTROS E BUSCA
+       -------------------------------------------------------------------------- */
+    function setupFilterEvents() {
+      const searchInput = document.getElementById('search-input');
+      const filterBtns = document.querySelectorAll('.filter-btn');
+      const resetBtn = document.getElementById('btn-reset-filters');
+
+      let currentCategory = 'ALL';
+      let currentSearch = '';
+
+      function applyFilters() {
+        const filtered = COMBOS_DATA.filter(combo => {
+          const matchesCategory = (currentCategory === 'ALL') || (combo.category === currentCategory);
+          const matchesSearch = combo.name.toLowerCase().includes(currentSearch.toLowerCase()) || 
+                                combo.desc.toLowerCase().includes(currentSearch.toLowerCase());
+          return matchesCategory && matchesSearch;
+        });
+        renderMenu(filtered);
+      }
+
+      searchInput.addEventListener('input', (e) => {
+        currentSearch = e.target.value.trim();
+        applyFilters();
+      });
+
+      filterBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          filterBtns.forEach(b => {
+            b.classList.remove('btn-dark', 'active');
+            b.classList.add('btn-outline-dark');
+          });
+          btn.classList.remove('btn-outline-dark');
+          btn.classList.add('btn-dark', 'active');
+
+          currentCategory = btn.getAttribute('data-cat');
+          applyFilters();
+        });
+      });
+
+      if (resetBtn) {
+        resetBtn.addEventListener('click', () => {
+          searchInput.value = '';
+          currentSearch = '';
+          currentCategory = 'ALL';
+          filterBtns.forEach(b => {
+            b.classList.remove('btn-dark', 'active');
+            b.classList.add('btn-outline-dark');
+          });
+          filterBtns[0].classList.remove('btn-outline-dark');
+          filterBtns[0].classList.add('btn-dark', 'active');
+          applyFilters();
+        });
+      }
+    }
+
+    /* Finalização Simulada de Pedido */
+    document.getElementById('btn-checkout').addEventListener('click', () => {
+      if (cart.length === 0) {
+        alert("Seu carrinho está vazio! Adicione algum combo antes de concluir.");
+        return;
+      }
+      alert("✅ PEDIDO SIMULADO COM SUCESSO!\n\nEste é um projeto universitário e acadêmico. Nenhuma cobrança foi realizada e nenhum dado pessoal foi coletado.");
+      cart = [];
+      updateCartUI();
+      const cartDrawerEl = document.getElementById('cartDrawer');
+      const bsOffcanvas = bootstrap.Offcanvas.getInstance(cartDrawerEl);
+      if (bsOffcanvas) bsOffcanvas.hide();
+    });
+
+    /* --------------------------------------------------------------------------
+       INICIALIZAÇÃO DA APLICAÇÃO
+       -------------------------------------------------------------------------- */
+    document.addEventListener('DOMContentLoaded', () => {
+      initBurgerScrollAnimation();
+      renderMenu(COMBOS_DATA);
+      setupFilterEvents();
+      updateCartUI();
+    });
+  </script>
+</body>
+</html>

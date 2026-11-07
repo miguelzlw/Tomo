@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState, type PointerEvent } from 'react';
-import { BookOpen, ChevronLeft, ChevronRight, Pencil, Plus } from 'lucide-react';
+import { BookOpen, Check, CircleCheck, ChevronLeft, ChevronRight, Pencil, Plus, Trash2, X } from 'lucide-react';
 import type { Livro } from './dados/tipos';
 
 interface Props {
@@ -7,17 +7,29 @@ interface Props {
   publicados: Livro[];
   novoLivro: () => void;
   editarLivro: (livro: Livro) => void;
+  excluirRascunhos?: (ids: string[]) => Promise<void>;
 }
 
 function Capa({ livro }: { livro: Livro }) {
   return livro.capa_url ? <img src={livro.capa_url} alt="" draggable={false} /> : <span className="typographic-cover"><BookOpen size={24} aria-hidden="true" /><span>{livro.titulo}</span></span>;
 }
 
-export function MeusLivros({ rascunhos, publicados, novoLivro, editarLivro }: Props) {
+export function MeusLivros({ rascunhos, publicados, novoLivro, editarLivro, excluirRascunhos }: Props) {
   const trilho = useRef<HTMLDivElement>(null);
   const arraste = useRef({ inicio: 0, topo: 0, scroll: 0, ativo: false, moveu: false });
   const [posicao, setPosicao] = useState(0);
   const [expandido, setExpandido] = useState(false);
+  const [selecionando, setSelecionando] = useState(false);
+  const [selecionados, setSelecionados] = useState<string[]>([]);
+  const [excluindo, setExcluindo] = useState(false);
+  const [erroExclusao, setErroExclusao] = useState('');
+  const excluirSelecao = async () => {
+    const ids = selecionados.filter((id) => rascunhos.some((livro) => livro.id === id));
+    if (!ids.length || !excluirRascunhos || excluindo) return;
+    if (!confirm(`Excluir definitivamente ${ids.length} rascunho(s)? Eles não irão para a lixeira e não poderão ser recuperados.`)) return;
+    setExcluindo(true); setErroExclusao('');
+    try { await excluirRascunhos(ids); setSelecionados([]); setSelecionando(false); } catch (e) { setErroExclusao(e instanceof Error ? e.message : 'Não foi possível excluir os rascunhos.'); } finally { setExcluindo(false); }
+  };
   const quantidade = rascunhos.length;
   const atual = Math.max(0, Math.min(quantidade - 1, Math.round(posicao)));
   const passo = () => trilho.current?.querySelector<HTMLElement>('.draft-slot')?.getBoundingClientRect().width || 72;
@@ -59,21 +71,36 @@ export function MeusLivros({ rascunhos, publicados, novoLivro, editarLivro }: Pr
     if (a.moveu) irPara(Math.round(event.currentTarget.scrollLeft / passo()));
   };
 
-  const cartao = (livro: Livro) => <article className="library-book" key={livro.id}>
-    <button className="library-cover" aria-label={`Editar ${livro.titulo}`} onClick={() => editarLivro(livro)}><Capa livro={livro} /></button>
-    <div className="library-book-info"><div className="library-book-text"><h3><button onClick={() => editarLivro(livro)}>{livro.titulo}</button></h3><p>{livro.situacao === 'rascunho' ? 'Rascunho' : livro.visibilidade === 'publico' ? 'Público' : livro.visibilidade === 'amigos' ? 'Amigos' : 'Só eu'}</p></div><button className="edit-book-icon" aria-label={`Editar ${livro.titulo}`} onClick={() => editarLivro(livro)}><Pencil size={18} /></button></div>
+  const emSelecao = expandido && selecionando;
+  const alternarSelecao = (id: string) => {
+    if (!excluindo) setSelecionados((ids) => ids.includes(id) ? ids.filter((atual) => atual !== id) : [...ids, id]);
+  };
+  const cartao = (livro: Livro) => <article className={`library-book${emSelecao ? ' draft-selectable' : ''}`} data-selected={emSelecao && selecionados.includes(livro.id)} key={livro.id} onClick={emSelecao ? () => alternarSelecao(livro.id) : undefined}>
+    <button className="library-cover" disabled={excluindo} aria-pressed={emSelecao ? selecionados.includes(livro.id) : undefined} aria-label={emSelecao ? `Selecionar ${livro.titulo}` : `Editar ${livro.titulo}`} onClick={(event) => {
+      event.stopPropagation();
+      if (emSelecao) alternarSelecao(livro.id); else editarLivro(livro);
+    }}><Capa livro={livro} />{emSelecao && <span className="draft-selection-circle" aria-hidden="true">{selecionados.includes(livro.id) && <Check size={16} strokeWidth={2.5} />}</span>}</button>
+    <div className="library-book-info"><div className="library-book-text"><h3><button disabled={excluindo} onClick={(event) => { event.stopPropagation(); if (emSelecao) alternarSelecao(livro.id); else editarLivro(livro); }}>{livro.titulo}</button></h3><p>{livro.situacao === 'rascunho' ? 'Rascunho' : livro.visibilidade === 'publico' ? 'Público' : livro.visibilidade === 'amigos' ? 'Amigos' : 'Só eu'}</p></div>{!emSelecao && <button className="edit-book-icon" aria-label={`Editar ${livro.titulo}`} onClick={() => editarLivro(livro)}><Pencil size={18} /></button>}</div>
   </article>;
 
   if (expandido) return <section className="my-books-page drafts-only" aria-label="Todos os rascunhos">
-    <button className="btn-secondary back-button" onClick={() => setExpandido(false)}><ChevronLeft size={18} /> Voltar</button>
-    <header className="my-books-heading"><h1>Rascunhos</h1></header>
+    <button className="btn-secondary back-button" disabled={excluindo} onClick={() => { setExpandido(false); setSelecionando(false); setSelecionados([]); }}><ChevronLeft size={18} /> Voltar</button>
+    <header className="my-books-heading drafts-heading"><h1>Rascunhos</h1>
+      {rascunhos.length > 0 && excluirRascunhos && <button className="drafts-select-trigger" aria-label={selecionando ? 'Cancelar seleção' : 'Selecionar rascunhos'} aria-pressed={selecionando} disabled={excluindo} onClick={() => { setSelecionando(!selecionando); setSelecionados([]); }}>{selecionando ? <X size={17} strokeWidth={1.5} /> : <CircleCheck size={18} strokeWidth={1.5} />}<span>{selecionando ? 'Cancelar' : 'Selecionar'}</span></button>}
+    </header>
+    {selecionando && <div className="draft-selection-toolbar">
+      <span className="draft-selection-count" aria-live="polite">{selecionados.length} selecionado{selecionados.length === 1 ? '' : 's'}</span>
+      <button className="draft-select-all" disabled={excluindo} onClick={() => setSelecionados(selecionados.length === rascunhos.length ? [] : rascunhos.map((livro) => livro.id))}>{selecionados.length === rascunhos.length ? 'Limpar seleção' : 'Selecionar todos'}</button>
+      <button className="draft-delete-selected" disabled={excluindo || !selecionados.length} onClick={() => void excluirSelecao()}><Trash2 size={16} strokeWidth={1.6} /><span>{excluindo ? 'Excluindo…' : 'Excluir selecionados'}</span></button>
+    </div>}
+    {erroExclusao && <p role="alert">{erroExclusao}</p>}
     {rascunhos.length ? <div className="library-grid">{rascunhos.map(cartao)}</div> : <p className="shelf-empty">Você ainda não tem rascunhos.</p>}
   </section>;
 
   return <div className="my-books-page">
     <header className="my-books-heading"><h1>Seus livros</h1><button className="btn-primary" onClick={novoLivro}><Plus size={18} /> Novo livro</button></header>
     <section className="draft-section" aria-labelledby="draft-heading">
-      <div className="section-header"><h2 id="draft-heading" className="section-title">Rascunhos</h2>{rascunhos.length > 1 && <button className="shelf-toggle" onClick={() => setExpandido(true)}>Ver todos os rascunhos</button>}</div>
+      <div className="section-header"><h2 id="draft-heading" className="section-title">Rascunhos</h2>{rascunhos.length > 0 && <button className="shelf-toggle" onClick={() => setExpandido(true)}>Ver todos os rascunhos</button>}</div>
       <div id="draft-content">
         {rascunhos.length === 0 ? <p className="shelf-empty">Seus rascunhos aparecem aqui. Comece um novo livro quando quiser.</p> : expandido ? <div className="library-grid">{rascunhos.map(cartao)}</div> : <>
           <div className="draft-stack draft-focus-stack" ref={trilho} role="region" aria-label="Rascunhos em capas sobrepostas, use as setas do teclado para navegar" tabIndex={0}
