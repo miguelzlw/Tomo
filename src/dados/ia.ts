@@ -25,11 +25,15 @@ export async function consultarConexoesIA(): Promise<DisponibilidadeIA> {
 }
 
 export async function gerarHistoriaIA(provedor: ProvedorIA, pedido: string): Promise<string> {
+  return (await gerarTrechoHistoriaIA(provedor, pedido)).texto;
+}
+
+export async function gerarTrechoHistoriaIA(provedor: ProvedorIA, pedido: string, anterior?: string): Promise<{ texto: string; continuar: boolean }> {
   if (!supabase) throw new Error('Configure o Supabase para criar histórias com IA.');
-  const { data, error } = await supabase.functions.invoke('historias-ia', { body: { acao: 'gerar', provedor, pedido }, timeout: 70000 });
+  const { data, error } = await supabase.functions.invoke('historias-ia', { body: { acao: 'gerar', provedor, pedido, ...(anterior ? { anterior } : {}) }, timeout: 70000 });
   if (error || data?.erro) throw new Error(await mensagemDaFuncao(data, error, 'Não foi possível gerar a história. Confira a conexão e tente novamente.'));
   if (typeof data?.texto !== 'string' || !data.texto.trim()) throw new Error('A IA não retornou texto.');
-  return data.texto;
+  return { texto: data.texto, continuar: data.continuar === true };
 }
 
 export async function criarTokenMCP(): Promise<string> {

@@ -2,9 +2,16 @@ import { beforeEach, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({ invoke: vi.fn() }));
 vi.mock('../supabaseCliente', () => ({ supabase: { functions: { invoke: mocks.invoke } } }));
-import { consultarConexoesIA, gerarHistoriaIA } from '../ia';
+import { consultarConexoesIA, gerarHistoriaIA, gerarTrechoHistoriaIA } from '../ia';
 
 beforeEach(() => vi.clearAllMocks());
+
+it('preserva a indicação de continuação e envia o contexto revisado', async () => {
+  mocks.invoke.mockResolvedValue({ data: { texto: 'Novo trecho', continuar: true }, error: null });
+  await expect(gerarTrechoHistoriaIA('gemini', 'Minha ideia', 'Trecho revisado')).resolves.toEqual({ texto: 'Novo trecho', continuar: true });
+  expect(mocks.invoke.mock.calls[0][1].body.anterior).toBe('Trecho revisado');
+  expect(mocks.invoke).toHaveBeenCalledOnce();
+});
 
 it.each([
   [429, 'A cota compartilhada da IA foi atingida. Tente novamente mais tarde.'],

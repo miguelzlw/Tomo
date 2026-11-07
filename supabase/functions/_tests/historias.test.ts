@@ -33,6 +33,21 @@ it('gera pelo Gemini após reservar a cota da conta', async () => {
   expect(fetchMock).toHaveBeenCalledTimes(1);
   expect(fetchMock.mock.calls[0][0]).toBe('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent');
 });
+it('aceita ideias extensas e devolve trecho parcial para continuar sem perdê-lo', async () => {
+  fetchMock.mockResolvedValue(new Response(JSON.stringify({ candidates: [{ finishReason: 'MAX_TOKENS', content: { parts: [{ text: 'O primeiro capítulo continua' }] } }] })));
+  const response = await handler(pedido({ acao: 'gerar', provedor: 'gemini', pedido: 'Ideia detalhada. '.repeat(5000), anterior: 'O início da história.' }));
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({ texto: 'O primeiro capítulo continua', continuar: true });
+  expect(JSON.parse(fetchMock.mock.calls[0][1].body).contents[0].parts[0].text).toContain('O início da história.');
+  expect(fetchMock).toHaveBeenCalledOnce();
+});
+it('informa o limite técnico em bytes sem consumir cota ou chamar o Google', async () => {
+  const response = await handler(pedido({ acao: 'gerar', provedor: 'gemini', pedido: 'á'.repeat(2100000) }));
+  expect(response.status).toBe(413);
+  expect((await response.json()).erro).toContain('Divida a ideia');
+  expect(mocks.rpc).not.toHaveBeenCalled();
+  expect(fetchMock).not.toHaveBeenCalled();
+});
 it('não faz chamada ao Google quando a conta esgota seu limite', async () => {
   mocks.rpc.mockResolvedValue({ error: { message: 'Limite diário de 20 gerações atingido' } });
   const response = await handler(pedido({ acao: 'gerar', provedor: 'gemini', pedido: 'Uma aventura' }));

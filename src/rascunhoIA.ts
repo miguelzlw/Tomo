@@ -7,7 +7,7 @@ export function carregarPreviaIA(chave?: string): PreviaIA | null {
   if (!chave) return null;
   try {
     const valor = JSON.parse(sessionStorage.getItem(prefixo + chave) || 'null');
-    if (!valor || typeof valor.pedido !== 'string' || valor.pedido.length > 6000 || typeof valor.texto !== 'string' || valor.texto.length > 150000 || !['gemini', 'openai', 'claude'].includes(valor.provedor)) return null;
+    if (!valor || typeof valor.pedido !== 'string' || typeof valor.texto !== 'string' || !['gemini', 'openai', 'claude'].includes(valor.provedor)) return null;
     return { pedido: valor.pedido, texto: valor.texto, provedor: valor.provedor };
   } catch { return null; }
 }

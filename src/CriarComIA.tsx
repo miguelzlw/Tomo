@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { consultarConexoesIA, gerarHistoriaIA } from './dados';
+import { consultarConexoesIA, gerarTrechoHistoriaIA } from './dados';
 import { carregarPreviaIA, salvarPreviaIA } from './rascunhoIA';
+import { gerarHistoriaEmPartes } from './ia';
 
 const provedor = 'gemini' as const;
 const exemplos = [
@@ -20,9 +21,11 @@ export function CriarComIA({ inserir, iniciarAberto = false, chaveRascunho, aoGe
   const [aviso, setAviso] = useState(restaurada?.texto ? 'Sua prévia anterior foi recuperada nesta aba.' : '');
   const [carregando, setCarregando] = useState(true);
   const [gerando, setGerando] = useState(false);
+  const [parando, setParando] = useState(false);
   const [cacheDisponivel, setCacheDisponivel] = useState(true);
   const ativo = useRef(true);
   const pedidoEmCurso = useRef(false);
+  const continuarGerando = useRef(false);
   const consultaAtual = useRef(0);
   const botaoGerar = useRef<HTMLButtonElement>(null);
   const campoPedido = useRef<HTMLTextAreaElement>(null);
@@ -43,16 +46,27 @@ export function CriarComIA({ inserir, iniciarAberto = false, chaveRascunho, aoGe
   useEffect(() => { if (iniciarAberto) setAberto(true); }, [iniciarAberto]);
   useEffect(() => { setCacheDisponivel(salvarPreviaIA(chaveRascunho, { pedido, texto, provedor })); }, [chaveRascunho, pedido, texto, provedor]);
   useEffect(() => {
-    if (!texto || !novaPrevia.current || salvando) return;
+    if (!texto || !novaPrevia.current || salvando || gerando) return;
     novaPrevia.current = false;
     previa.current?.focus({ preventScroll: true });
     previa.current?.scrollIntoView({ block: 'center', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
-  }, [texto, salvando]);
+  }, [texto, salvando, gerando]);
 
-  async function gerar() {
-    if (pedidoEmCurso.current || texto || !pedido.trim() || carregando || erroDisponibilidade || !disponivel) return;
-    pedidoEmCurso.current = true; setGerando(true); aoGerar?.(true); setErro(''); setAviso('');
-    try { const resposta = await gerarHistoriaIA(provedor, pedido); if (ativo.current) { novaPrevia.current = true; setTexto(resposta); } }
+  async function gerar(continuacao = false) {
+    if (pedidoEmCurso.current || (!continuacao && texto) || !pedido.trim() || carregando || erroDisponibilidade || !disponivel) return;
+    pedidoEmCurso.current = true; continuarGerando.current = true; setParando(false); setGerando(true); aoGerar?.(true); setErro(''); setAviso('');
+    try {
+      await gerarHistoriaEmPartes({
+        inicial: continuacao ? texto : '',
+        gerarTrecho: anterior => gerarTrechoHistoriaIA(provedor, pedido, anterior),
+        ativo: () => ativo.current,
+        continuar: () => continuarGerando.current,
+        receber: (acumulado, partes) => {
+          novaPrevia.current = true; setTexto(acumulado);
+          setAviso(`${partes} ${partes === 1 ? 'trecho recebido' : 'trechos recebidos'} nesta geração. O texto está preservado na prévia.`);
+        },
+      });
+    }
     catch (e) { if (ativo.current) setErro(e instanceof Error ? e.message : 'Não foi possível gerar a história.'); }
     finally { pedidoEmCurso.current = false; aoGerar?.(false); if (ativo.current) setGerando(false); }
   }
@@ -72,14 +86,13 @@ export function CriarComIA({ inserir, iniciarAberto = false, chaveRascunho, aoGe
     <label className="form-label" htmlFor="ia-pedido">Que história você quer criar?</label>
     <p id="ia-orientacao" className="ia-note">Diga os personagens, o lugar e o tom da história. Para continuar um texto, inclua o trecho no pedido.</p>
     {!texto && <div className="ia-examples" aria-label="Exemplos de pedidos">{exemplos.map(exemplo => <button type="button" key={exemplo.nome} disabled={gerando} onClick={() => { setPedido(exemplo.pedido); setErro(''); }}>{exemplo.nome}</button>)}</div>}
-    <textarea ref={campoPedido} id="ia-pedido" className="form-input" value={pedido} maxLength={6000} rows={4} disabled={gerando} aria-describedby="ia-orientacao ia-contagem" placeholder="Uma aventura sobre dois amigos que descobrem uma biblioteca escondida…" onChange={e => setPedido(e.target.value)} />
-    <p id="ia-contagem" className="ia-note">{pedido.length.toLocaleString('pt-BR')} / 6.000 caracteres</p>
-    <p className="ia-note">Seu pedido vai ao Google e, na modalidade gratuita, pedidos e respostas podem melhorar os serviços do Google. Evite textos confidenciais e dados pessoais sensíveis.</p>
+    <textarea ref={campoPedido} id="ia-pedido" className="form-input" value={pedido} rows={4} disabled={gerando} aria-describedby="ia-orientacao ia-contagem" placeholder="Uma aventura sobre dois amigos que descobrem uma biblioteca escondida…" onChange={e => setPedido(e.target.value)} />
+    <p id="ia-contagem" className="ia-note">{pedido.length.toLocaleString('pt-BR')} caracteres</p>
     <button ref={botaoGerar} className="btn-primary" disabled={gerando || carregando || Boolean(erroDisponibilidade) || !disponivel || !pedido.trim() || Boolean(texto)} onClick={() => void gerar()}>{gerando ? 'Criando história…' : 'Gerar história'}</button>
-    {gerando && <p role="status">Sua história está sendo escrita. Pode levar até um minuto. Evite sair do editor enquanto aguarda.</p>}
+    {gerando && <><p role="status">{parando ? 'Terminando o trecho atual. Os trechos recebidos serão mantidos.' : 'Sua história está sendo escrita em trechos. Cada trecho pode levar até um minuto. Evite sair do editor enquanto aguarda.'}</p><button className="btn-secondary" disabled={parando} onClick={() => { continuarGerando.current = false; setParando(true); }}>Parar após este trecho</button></>}
     {erro && <p role="alert">{erro}</p>}{aviso && <p role="status">{aviso}</p>}
-    {texto && <><label className="form-label" htmlFor="ia-previa">Revise a história</label><textarea ref={previa} id="ia-previa" className="form-input ia-preview" maxLength={150000} rows={10} disabled={gerando} value={texto} onChange={e => setTexto(e.target.value)} /><div className="ia-actions"><button className="btn-primary" disabled={gerando || !texto.trim()} onClick={adicionar}>Adicionar ao livro</button><button className="btn-secondary" disabled={gerando} onClick={descartar}>Descartar prévia</button></div><p>O texto será adicionado em novas páginas, preservando o que você já escreveu. Adicione ou descarte esta prévia antes de gerar outra.</p>{chaveRascunho && cacheDisponivel && <p className="ia-note">Esta prévia fica guardada nesta aba ao sair e voltar ao editor. Para guardá-la no livro, use Adicionar ao livro e salve.</p>}</>}
-    <details className="ia-usage-info"><summary>Limites e dicas para os pedidos</summary><p className="ia-note">Peça histórias de até cerca de 1.200 palavras por vez. A IA recebe apenas seu pedido, sem ler automaticamente suas páginas. Para revisar ou continuar, inclua o trecho necessário.</p><p className="ia-note">São até 20 tentativas por pessoa ao dia, compartilhando a cota da IA do Tomo. Pedidos que falham depois da reserva também podem contar. Ao atingir um limite, o Tomo interrompe os pedidos; não troca automaticamente para uma IA paga.</p></details>
+    {texto && <><label className="form-label" htmlFor="ia-previa">Revise a história</label><textarea ref={previa} id="ia-previa" className="form-input ia-preview" rows={10} disabled={gerando} value={texto} onChange={e => setTexto(e.target.value)} /><div className="ia-actions"><button className="btn-primary" disabled={gerando || !texto.trim()} onClick={adicionar}>Adicionar ao livro</button><button className="btn-secondary" disabled={gerando || carregando || Boolean(erroDisponibilidade) || !disponivel || !pedido.trim() || !texto.trim()} onClick={() => void gerar(true)}>Continuar história</button><button className="btn-secondary" disabled={gerando} onClick={descartar}>Descartar prévia</button></div><p>O texto será adicionado em novas páginas, preservando o que você já escreveu. Você pode continuar esta história antes de adicioná-la ao livro.</p>{chaveRascunho && cacheDisponivel && <p className="ia-note">Esta prévia fica guardada nesta aba ao sair e voltar ao editor. Para guardá-la no livro, use Adicionar ao livro e salve.</p>}</>}
+    <details className="ia-usage-info"><summary>Limites e dicas para os pedidos</summary><p className="ia-note">Não há um teto fixo de páginas no Tomo. Quando uma resposta atinge o limite técnico, a geração continua em outro trecho. Use Parar após este trecho para pausar e Continuar história para retomar. A IA recebe seu pedido e o contexto da prévia, sem ler automaticamente as páginas do livro. Em histórias extensas, usa a abertura e os acontecimentos mais recentes como contexto.</p><p className="ia-note">Cada trecho usa uma tentativa da cota: são até 20 por pessoa ao dia, compartilhando a cota gratuita da IA do Tomo. Falhas depois da reserva também podem contar. Ao atingir um limite, os trechos recebidos são mantidos e a geração para, sem trocar para uma IA paga.</p></details>
     {!cacheDisponivel && <p role="alert">Seu navegador não permitiu guardar a prévia nesta aba. Adicione ao livro ou copie o texto antes de sair.</p>}
   </details>;
 }

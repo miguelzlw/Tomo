@@ -8,7 +8,7 @@ Deno.serve(async req => {
   if (req.method === 'OPTIONS') return new Response(null, { headers });
   if (req.method !== 'POST') return responder({ erro: 'Método não permitido.' }, 405);
   try {
-    if (Number(req.headers.get('content-length')) > 30000) return responder({ erro: 'Pedido muito grande.' }, 413);
+    if (Number(req.headers.get('content-length')) > 4 * 1024 * 1024) return responder({ erro: 'Este pedido ultrapassa a capacidade de uma única requisição. Divida a ideia em partes.' }, 413);
     const auth = req.headers.get('authorization') || '';
     const url = Deno.env.get('SUPABASE_URL')!;
     const cliente = createClient(url, Deno.env.get('SUPABASE_ANON_KEY')!, { global: { headers: { Authorization: auth } } });
@@ -18,7 +18,7 @@ Deno.serve(async req => {
     if (erroPerfil) return responder({ erro: 'Não foi possível verificar sua conta agora. Tente novamente mais tarde.' }, 503);
     if (perfil?.status !== 'aprovado') return responder({ erro: 'Sua conta precisa estar aprovada.' }, 403);
     const raw = await req.text();
-    if (raw.length > 30000) return responder({ erro: 'Pedido muito grande.' }, 413);
+    if (new TextEncoder().encode(raw).byteLength > 4 * 1024 * 1024) return responder({ erro: 'Este pedido ultrapassa a capacidade de uma única requisição. Divida a ideia em partes.' }, 413);
     let body;
     try { body = JSON.parse(raw); } catch { return responder({ erro: 'Pedido inválido.' }, 400); }
     const config = (p: string) => ({ chave: Deno.env.get(`${p.toUpperCase()}_API_KEY`), modelo: Deno.env.get(`${p.toUpperCase()}_MODEL`) });
@@ -38,11 +38,11 @@ Deno.serve(async req => {
       if (limite.message === 'Conta não aprovada') return responder({ erro: 'Sua conta precisa estar aprovada.' }, 403);
       return responder({ erro: 'Não foi possível verificar seu limite agora. Tente novamente mais tarde.' }, 503);
     }
-    const chamada = requisicaoIA(pedido.provedor, modelo, chave, pedido.pedido);
+    const chamada = requisicaoIA(pedido.provedor, modelo, chave, pedido.pedido, pedido.anterior);
     const resultado = await fetch(chamada.url, { method: 'POST', headers: chamada.headers, body: JSON.stringify(chamada.body), signal: AbortSignal.timeout(55000) });
     if (!resultado.ok) return responder({ erro: resultado.status === 429 ? 'A cota compartilhada da IA foi atingida. Tente novamente mais tarde.' : 'A IA não conseguiu gerar a história. Tente novamente mais tarde ou avise o administrador.' }, resultado.status === 429 ? 429 : 502);
     const resposta = await resultado.json();
-    try { return responder({ texto: extrairTextoIA(pedido.provedor, resposta) }); }
+    try { return responder({ texto: extrairTextoIA(pedido.provedor, resposta), ...(pedido.provedor === 'gemini' && resposta.candidates?.[0]?.finishReason === 'MAX_TOKENS' ? { continuar: true } : {}) }); }
     catch (e) { return responder({ erro: e instanceof Error ? e.message : 'A IA não concluiu a história. Reformule o pedido.' }, 422); }
   } catch {
     return responder({ erro: 'Não foi possível concluir a história. Tente um pedido mais curto ou tente novamente mais tarde.' }, 503);

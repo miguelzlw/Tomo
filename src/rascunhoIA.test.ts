@@ -16,6 +16,12 @@ it('preserva prévia separadamente por usuário e livro', () => {
   expect(carregarPreviaIA('autor:livro-b')).toBeNull();
   expect(carregarPreviaIA('outro:livro-a')).toBeNull();
 });
+it('recupera ideias acima de seis mil caracteres e prévias com muitas páginas', () => {
+  armazenamento();
+  const previa = { pedido: 'Ideia. '.repeat(3000), texto: 'História longa. '.repeat(12000), provedor: 'gemini' as const };
+  expect(salvarPreviaIA('autor:livro', previa)).toBe(true);
+  expect(carregarPreviaIA('autor:livro')).toEqual(previa);
+});
 it('ignora cache corrompido sem impedir a criação de histórias', () => {
   const { itens } = armazenamento();
   itens.set('tomo:previa-ia:autor:livro-a', '{invalido');

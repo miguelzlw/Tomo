@@ -4,9 +4,17 @@ import { assinar, verificar, hash, redirectValido } from '../_shared/oauth';
 
 it('valida provedor e tamanho antes de fazer qualquer chamada paga', () => {
   expect(() => validarPedido({ provedor: 'outro', pedido: 'Olá' })).toThrow();
-  expect(() => validarPedido({ provedor: 'openai', pedido: 'x'.repeat(6001) })).toThrow();
+  expect(validarPedido({ provedor: 'gemini', pedido: 'x'.repeat(60001) }).pedido).toHaveLength(60001);
   expect(() => validarPedido({ provedor: 'openai', pedido: ' ' })).toThrow();
   expect(validarPedido({ provedor: 'gemini', pedido: ' Uma aventura ' }).pedido).toBe('Uma aventura');
+});
+it('preserva trecho Gemini interrompido por tamanho e permite contexto de continuação', () => {
+  expect(extrairTextoIA('gemini', { candidates: [{ finishReason: 'MAX_TOKENS', content: { parts: [{ text: 'Trecho para continuar' }] } }] })).toBe('Trecho para continuar');
+  expect(validarPedido({ provedor: 'gemini', pedido: 'Minha ideia', anterior: 'Trecho anterior' }).anterior).toBe('Trecho anterior');
+  const corpo = JSON.stringify(requisicaoIA('gemini', 'modelo', 'segredo', 'Minha ideia', 'Trecho anterior').body);
+  expect(corpo).toContain('Trecho anterior');
+  expect(corpo).not.toContain('1200 palavras');
+  expect(() => validarPedido({ provedor: 'gemini', pedido: 'Minha ideia', anterior: {} })).toThrow();
 });
 it('envia chaves somente aos endpoints oficiais e não permite alterar a URL com o modelo', () => {
   expect(requisicaoIA('openai', 'modelo', 'segredo', 'Olá').headers.Authorization).toBe('Bearer segredo');
